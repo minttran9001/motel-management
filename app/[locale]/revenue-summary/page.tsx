@@ -77,6 +77,8 @@ export default function RevenueSummaryPage() {
   );
   const [monthlyAnalyticsLoading, setMonthlyAnalyticsLoading] = useState(false);
   const [analyticsYear, setAnalyticsYear] = useState(new Date().getFullYear());
+  const [loadingRevenueDetails, setLoadingRevenueDetails] = useState(false);
+  const [loadingExpensesDetails, setLoadingExpensesDetails] = useState(false);
 
   const fetchRevenue = useCallback(async () => {
     setLoading(true);
