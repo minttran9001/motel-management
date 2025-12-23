@@ -68,11 +68,11 @@ export interface Transaction {
 
 export interface Expense {
   _id: string;
-  category: string;
+  title: string;
+  category: "electricity" | "water" | "maintenance" | "staff" | "other";
   amount: number;
   date: string;
   description?: string;
-  title: string;
 }
 
 export interface RevenueData {
