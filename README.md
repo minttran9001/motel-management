@@ -2,6 +2,8 @@
 
 A modern Next.js application for managing small motels with room management, hourly pricing, and expense tracking features.
 
+<!-- Auto-deployment test -->
+
 ## Features
 
 - **Authentication**: Secure login system using Auth.js (NextAuth.js v5)
