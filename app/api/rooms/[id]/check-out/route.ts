@@ -3,13 +3,13 @@ import connectDB from "@/lib/mongodb";
 import Room from "@/models/Room";
 import Transaction from "@/models/Transaction";
 import { calculatePrice } from "@/lib/priceCalculator";
+import { withAuth } from "@/lib/api-wrapper";
 
-export async function POST(
+export const POST = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectDB();
+) => {
+  await connectDB();
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const {
@@ -144,18 +144,11 @@ export async function POST(
       }
     );
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        transaction,
-        calculation,
-      },
-    });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({
+    success: true,
+    data: {
+      transaction,
+      calculation,
+    },
+  });
+});

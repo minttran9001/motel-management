@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
 
 interface Transaction {
   _id: string;
@@ -63,7 +65,7 @@ export default function HistoryPage() {
   const totalCollected = transactions.reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageContainer>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -208,6 +210,6 @@ export default function HistoryPage() {
           </table>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

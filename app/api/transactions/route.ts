@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Transaction from "@/models/Transaction";
 import { startOfDay, endOfDay } from "date-fns";
+import { withAuth } from "@/lib/api-wrapper";
 
-export async function GET(request: NextRequest) {
-  try {
-    await connectDB();
+export const GET = withAuth(async (request: NextRequest) => {
+  await connectDB();
     const { searchParams } = new URL(request.url);
     const dateStr = searchParams.get("date");
     const startDateStr = searchParams.get("startDate");
@@ -54,14 +54,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const transactions = await Transaction.find(query).sort({ checkOut: -1 });
+  const transactions = await Transaction.find(query).sort({ checkOut: -1 });
 
-    return NextResponse.json({ success: true, data: transactions });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({ success: true, data: transactions });
+});

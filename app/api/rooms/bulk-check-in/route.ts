@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Room from '@/models/Room';
+import { withAuth } from '@/lib/api-wrapper';
 
-export async function POST(request: NextRequest) {
-  try {
-    await connectDB();
+export const POST = withAuth(async (request: NextRequest) => {
+  await connectDB();
     const body = await request.json();
     const { roomIds, customerName, identityCode, origin, dailyPrice } = body;
 
@@ -38,8 +38,5 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    return NextResponse.json({ success: true, message: 'Check-in successful' });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  }
-}
+  return NextResponse.json({ success: true, message: 'Check-in successful' });
+});

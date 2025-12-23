@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
 
 interface RoomStats {
   total: number;
@@ -43,23 +45,20 @@ export default function DashboardPage() {
     setLoading(true);
     try {
       const [roomsRes, revenueRes] = await Promise.all([
-        fetch("/api/rooms"),
-        fetch(`/api/revenue?period=${period}`),
+        apiClient.rooms.getAll(),
+        apiClient.revenue.get({ period }),
       ]);
 
-      const roomsResult = await roomsRes.json();
-      const revenueResult = await revenueRes.json();
-
-      if (roomsResult.success) {
-        const total = roomsResult.data.length;
-        const available = roomsResult.data.filter(
-          (r: any) => r.isAvailable
+      if (roomsRes.data.success) {
+        const total = roomsRes.data.data.length;
+        const available = roomsRes.data.data.filter(
+          (r: { isAvailable: boolean }) => r.isAvailable
         ).length;
         setStats({ total, available, occupied: total - available });
       }
 
-      if (revenueResult.success) {
-        setRevenue(revenueResult.data);
+      if (revenueRes.data.success) {
+        setRevenue(revenueRes.data.data);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -82,7 +81,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContainer>
         <h1 className="text-3xl font-bold text-gray-900 mb-8">
           {t("dashboard.title")}
         </h1>
@@ -92,7 +91,7 @@ export default function DashboardPage() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
-                <div className="shrink-0 bg-blue-500 rounded-md p-3">
+                <div className="shrink-0 bg-blue-400 rounded-md p-3">
                   <svg
                     className="h-6 w-6 text-white"
                     fill="none"
@@ -124,7 +123,7 @@ export default function DashboardPage() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
-                <div className="shrink-0 bg-green-500 rounded-md p-3">
+                <div className="shrink-0 bg-green-400 rounded-md p-3">
                   <svg
                     className="h-6 w-6 text-white"
                     fill="none"
@@ -156,7 +155,7 @@ export default function DashboardPage() {
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
               <div className="flex items-center">
-                <div className="shrink-0 bg-red-500 rounded-md p-3">
+                <div className="shrink-0 bg-red-400 rounded-md p-3">
                   <svg
                     className="h-6 w-6 text-white"
                     fill="none"
@@ -191,7 +190,7 @@ export default function DashboardPage() {
               <div className="flex items-center">
                 <div
                   className={`shrink-0 rounded-md p-3 ${
-                    revenue.netIncome >= 0 ? "bg-yellow-500" : "bg-red-600"
+                    revenue.netIncome >= 0 ? "bg-yellow-300" : "bg-red-400"
                   }`}
                 >
                   <svg
@@ -237,7 +236,7 @@ export default function DashboardPage() {
               onClick={() => setPeriod(p)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 period === p
-                  ? "bg-blue-600 text-white"
+                  ? "bg-blue-400 text-white"
                   : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
               }`}
             >
@@ -357,7 +356,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

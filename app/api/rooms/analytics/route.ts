@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Transaction from "@/models/Transaction";
+import { withAuth } from "@/lib/api-wrapper";
 
 interface RoomAnalytics {
   roomNumber: string;
@@ -12,9 +13,8 @@ interface RoomAnalytics {
   averageStayDuration: number; // Average stay duration in hours
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    await connectDB();
+export const GET = withAuth(async (request: NextRequest) => {
+  await connectDB();
     const { searchParams } = new URL(request.url);
     const startDateStr = searchParams.get("startDate");
     const endDateStr = searchParams.get("endDate");
@@ -91,14 +91,7 @@ export async function GET(request: NextRequest) {
       (a, b) => b.transactionCount - a.transactionCount
     );
 
-    return NextResponse.json({ success: true, data: analytics });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({ success: true, data: analytics });
+});
 
 

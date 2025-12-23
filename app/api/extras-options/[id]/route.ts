@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import ExtrasOption from "@/models/ExtrasOption";
+import { withAuth } from "@/lib/api-wrapper";
 
-export async function PUT(
+export const PUT = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectDB();
+) => {
+  await connectDB();
     const { id } = await params;
     const body = await request.json();
     const { name, price, isActive } = body;
@@ -29,22 +29,14 @@ export async function PUT(
       );
     }
 
-    return NextResponse.json({ success: true, data: option });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({ success: true, data: option });
+});
 
-export async function DELETE(
+export const DELETE = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectDB();
+) => {
+  await connectDB();
     const { id } = await params;
 
     // Soft delete by setting isActive to false
@@ -61,14 +53,7 @@ export async function DELETE(
       );
     }
 
-    return NextResponse.json({ success: true, data: option });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({ success: true, data: option });
+});
 
 

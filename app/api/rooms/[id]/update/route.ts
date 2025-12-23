@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Room from "@/models/Room";
+import { withAuth } from "@/lib/api-wrapper";
 
-export async function PUT(
+export const PUT = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectDB();
+) => {
+  await connectDB();
     const { id } = await params;
     const body = await request.json();
     const {
@@ -94,12 +94,5 @@ export async function PUT(
       );
     }
 
-    return NextResponse.json({ success: true, data: updatedRoom });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+  return NextResponse.json({ success: true, data: updatedRoom });
+});

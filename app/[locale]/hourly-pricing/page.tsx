@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmModal from "@/components/ConfirmModal";
+import Modal from "@/components/Modal";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
 
 interface HourlyPricing {
@@ -24,6 +27,8 @@ export default function HourlyPricingPage() {
   const [editingPricing, setEditingPricing] = useState<HourlyPricing | null>(
     null
   );
+  const [processingSubmit, setProcessingSubmit] = useState(false);
+  const [processingDelete, setProcessingDelete] = useState<string | null>(null);
 
   // Confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
@@ -54,10 +59,9 @@ export default function HourlyPricingPage() {
 
   const fetchPricing = async () => {
     try {
-      const response = await fetch("/api/hourly-pricing");
-      const result = await response.json();
-      if (result.success) {
-        setPricing(result.data);
+      const response = await apiClient.hourlyPricing.getAll();
+      if (response.data.success) {
+        setPricing(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching hourly pricing:", error);
@@ -66,29 +70,24 @@ export default function HourlyPricingPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    setProcessingSubmit(true);
     try {
-      const url = editingPricing
-        ? `/api/hourly-pricing/${editingPricing._id}`
-        : "/api/hourly-pricing";
-      const method = editingPricing ? "PUT" : "POST";
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      const result = await response.json();
-      if (result.success) {
+      const response = editingPricing
+        ? await apiClient.hourlyPricing.update(editingPricing._id, formData)
+        : await apiClient.hourlyPricing.create(formData);
+      if (response.data.success) {
         fetchPricing();
         setShowModal(false);
         resetForm();
-      } else {
-        showToast.error(result.error || t("hourlyPricing.saveError"));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving hourly pricing:", error);
-      showToast.error(t("hourlyPricing.saveError"));
+      showToast.error(
+        error.response?.data?.error || t("hourlyPricing.saveError")
+      );
+    } finally {
+      setProcessingSubmit(false);
     }
   };
 
@@ -97,17 +96,19 @@ export default function HourlyPricingPage() {
       title: t("common.confirm"),
       message: t("common.confirmDelete"),
       onConfirm: async () => {
+        setProcessingDelete(id);
         try {
-          const response = await fetch(`/api/hourly-pricing/${id}`, {
-            method: "DELETE",
-          });
-          const result = await response.json();
-          if (result.success) {
+          const response = await apiClient.hourlyPricing.delete(id);
+          if (response.data.success) {
             fetchPricing();
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error deleting hourly pricing:", error);
+          showToast.error(
+            error.response?.data?.error || "Error deleting hourly pricing"
+          );
         } finally {
+          setProcessingDelete(null);
           setShowConfirm(false);
         }
       },
@@ -157,7 +158,7 @@ export default function HourlyPricingPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContainer>
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -172,7 +173,7 @@ export default function HourlyPricingPage() {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
           >
             {t("hourlyPricing.addPricing")}
           </button>
@@ -245,15 +246,22 @@ export default function HourlyPricingPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleEdit(p)}
-                        className="text-blue-600 hover:text-blue-900"
+                        disabled={processingDelete !== null}
+                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {t("common.edit")}
                       </button>
                       <button
                         onClick={() => handleDelete(p._id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={
+                          processingDelete === p._id ||
+                          processingDelete !== null
+                        }
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {t("common.delete")}
+                        {processingDelete === p._id
+                          ? t("common.loading")
+                          : t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -263,159 +271,146 @@ export default function HourlyPricingPage() {
           </table>
         </div>
 
-        {showModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-5 border w-full max-w-sm shadow-lg rounded-xl bg-white max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {editingPricing
-                  ? t("hourlyPricing.editPricing")
-                  : t("hourlyPricing.addPricing")}
-              </h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.category")}
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        category: e.target.value as "vip" | "regular",
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="regular">{t("room.regular")}</option>
-                    <option value="vip">{t("room.vip")}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.bedType")}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={formData.bedType}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        bedType: Number(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("hourlyPricing.firstHours")}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={formData.firstHours}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        firstHours: Number(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("hourlyPricing.firstHoursPrice")}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.firstHoursPrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        firstHoursPrice: Number(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("hourlyPricing.additionalHourPrice")}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.additionalHourPrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        additionalHourPrice: Number(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("hourlyPricing.dailyPrice")}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.dailyPrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        dailyPrice: Number(e.target.value),
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("hourlyPricing.checkoutTime")} (HH:MM)
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={formData.checkoutTime}
-                    onChange={(e) =>
-                      setFormData({ ...formData, checkoutTime: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                  >
-                    {t("common.cancel")}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    {t("common.save")}
-                  </button>
-                </div>
-              </form>
+        <Modal
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false);
+            resetForm();
+          }}
+          title={
+            editingPricing
+              ? t("hourlyPricing.editPricing")
+              : t("hourlyPricing.addPricing")
+          }
+          maxWidth="sm"
+          onSave={handleSubmit}
+          isLoading={processingSubmit}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("room.category")}
+              </label>
+              <select
+                value={formData.category}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    category: e.target.value as "vip" | "regular",
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="regular">{t("room.regular")}</option>
+                <option value="vip">{t("room.vip")}</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("room.bedType")}
+              </label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={formData.bedType}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    bedType: Number(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("hourlyPricing.firstHours")}
+              </label>
+              <input
+                type="number"
+                required
+                min="1"
+                value={formData.firstHours}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    firstHours: Number(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("hourlyPricing.firstHoursPrice")}
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={formData.firstHoursPrice}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    firstHoursPrice: Number(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("hourlyPricing.additionalHourPrice")}
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={formData.additionalHourPrice}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    additionalHourPrice: Number(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("hourlyPricing.dailyPrice")}
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={formData.dailyPrice}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    dailyPrice: Number(e.target.value),
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("hourlyPricing.checkoutTime")} (HH:MM)
+              </label>
+              <input
+                type="time"
+                required
+                value={formData.checkoutTime}
+                onChange={(e) =>
+                  setFormData({ ...formData, checkoutTime: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
           </div>
-        )}
+        </Modal>
 
         {/* Custom Confirmation Modal */}
         <ConfirmModal
@@ -426,7 +421,7 @@ export default function HourlyPricingPage() {
           onCancel={() => setShowConfirm(false)}
           type={confirmConfig.type}
         />
-      </div>
+      </PageContainer>
     </div>
   );
 }

@@ -1,31 +1,34 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
-import ConfirmModal from '@/components/ConfirmModal';
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import ConfirmModal from "@/components/ConfirmModal";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
+import { showToast } from "@/lib/toast";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 interface Expense {
   _id: string;
   title: string;
   amount: number;
-  category: 'electricity' | 'water' | 'maintenance' | 'staff' | 'other';
+  category: "electricity" | "water" | "maintenance" | "staff" | "other";
   date: string;
   description?: string;
 }
@@ -36,6 +39,8 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [processingSubmit, setProcessingSubmit] = useState(false);
+  const [processingDelete, setProcessingDelete] = useState<string | null>(null);
 
   // Confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
@@ -43,19 +48,19 @@ export default function ExpensesPage() {
     title: string;
     message: string;
     onConfirm: () => void;
-    type?: 'danger' | 'warning' | 'info';
+    type?: "danger" | "warning" | "info";
   }>({
-    title: '',
-    message: '',
+    title: "",
+    message: "",
     onConfirm: () => {},
   });
 
   const [formData, setFormData] = useState({
-    title: '',
+    title: "",
     amount: 0,
-    category: 'other' as any,
-    date: new Date().toISOString().split('T')[0],
-    description: '',
+    category: "other" as any,
+    date: new Date().toISOString().split("T")[0],
+    description: "",
   });
 
   useEffect(() => {
@@ -64,13 +69,12 @@ export default function ExpensesPage() {
 
   const fetchExpenses = async () => {
     try {
-      const response = await fetch('/api/expenses');
-      const result = await response.json();
-      if (result.success) {
-        setExpenses(result.data);
+      const response = await apiClient.expenses.getAll();
+      if (response.data.success) {
+        setExpenses(response.data.data);
       }
     } catch (error) {
-      console.error('Error fetching expenses:', error);
+      console.error("Error fetching expenses:", error);
     } finally {
       setLoading(false);
     }
@@ -78,43 +82,44 @@ export default function ExpensesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setProcessingSubmit(true);
     try {
-      const url = editingExpense ? `/api/expenses/${editingExpense._id}` : '/api/expenses';
-      const method = editingExpense ? 'PUT' : 'POST';
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const result = await response.json();
-      if (result.success) {
+      const response = editingExpense
+        ? await apiClient.expenses.update(editingExpense._id, formData)
+        : await apiClient.expenses.create(formData);
+      if (response.data.success) {
         fetchExpenses();
         setShowModal(false);
         resetForm();
       }
-    } catch (error) {
-      console.error('Error saving expense:', error);
+    } catch (error: any) {
+      console.error("Error saving expense:", error);
+      showToast.error(error.response?.data?.error || "Error saving expense");
+    } finally {
+      setProcessingSubmit(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     setConfirmConfig({
-      title: t('common.confirm'),
-      message: t('common.confirmDelete'),
+      title: t("common.confirm"),
+      message: t("common.confirmDelete"),
       onConfirm: async () => {
         try {
-          const response = await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
-          const result = await response.json();
-          if (result.success) {
+          const response = await apiClient.expenses.delete(id);
+          if (response.data.success) {
             fetchExpenses();
           }
-        } catch (error) {
-          console.error('Error deleting expense:', error);
+        } catch (error: any) {
+          console.error("Error deleting expense:", error);
+          showToast.error(
+            error.response?.data?.error || "Error deleting expense"
+          );
         } finally {
           setShowConfirm(false);
         }
       },
-      type: 'danger'
+      type: "danger",
     });
     setShowConfirm(true);
   };
@@ -125,48 +130,50 @@ export default function ExpensesPage() {
       title: e.title,
       amount: e.amount,
       category: e.category,
-      date: new Date(e.date).toISOString().split('T')[0],
-      description: e.description || '',
+      date: new Date(e.date).toISOString().split("T")[0],
+      description: e.description || "",
     });
     setShowModal(true);
   };
 
   const resetForm = () => {
     setFormData({
-      title: '',
+      title: "",
       amount: 0,
-      category: 'other',
-      date: new Date().toISOString().split('T')[0],
-      description: '',
+      category: "other",
+      date: new Date().toISOString().split("T")[0],
+      description: "",
     });
     setEditingExpense(null);
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN').format(price);
+    return new Intl.NumberFormat("vi-VN").format(price);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-gray-600">{t('common.loading')}</p>
+        <p className="text-gray-600">{t("common.loading")}</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContainer>
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">{t('expense.title')}</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {t("expense.title")}
+          </h1>
           <button
             onClick={() => {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
           >
-            {t('expense.addExpense')}
+            {t("expense.addExpense")}
           </button>
         </div>
 
@@ -175,27 +182,30 @@ export default function ExpensesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('expense.date')}
+                  {t("expense.date")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('expense.expenseTitle')}
+                  {t("expense.expenseTitle")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('expense.category')}
+                  {t("expense.category")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('expense.amount')}
+                  {t("expense.amount")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t('common.actions')}
+                  {t("common.actions")}
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {expenses.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    {t('common.noData')}
+                  <td
+                    colSpan={5}
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
+                    {t("common.noData")}
                   </td>
                 </tr>
               ) : (
@@ -216,15 +226,22 @@ export default function ExpensesPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleEdit(e)}
-                        className="text-blue-600 hover:text-blue-900"
+                        disabled={processingDelete !== null}
+                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {t('common.edit')}
+                        {t("common.edit")}
                       </button>
                       <button
                         onClick={() => handleDelete(e._id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={
+                          processingDelete === e._id ||
+                          processingDelete !== null
+                        }
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {t('common.delete')}
+                        {processingDelete === e._id
+                          ? t("common.loading")
+                          : t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -234,74 +251,93 @@ export default function ExpensesPage() {
           </table>
         </div>
 
-        <Dialog open={showModal} onOpenChange={(open) => {
-          if (!open) {
-            setShowModal(false);
-            resetForm();
-          }
-        }}>
+        <Dialog
+          open={showModal}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowModal(false);
+              resetForm();
+            }
+          }}
+        >
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>
-                {editingExpense ? t('expense.editExpense') : t('expense.addExpense')}
+                {editingExpense
+                  ? t("expense.editExpense")
+                  : t("expense.addExpense")}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">{t('expense.expenseTitle')}</Label>
+                <Label htmlFor="title">{t("expense.expenseTitle")}</Label>
                 <Input
                   id="title"
                   type="text"
                   required
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">{t('expense.category')}</Label>
+                <Label htmlFor="category">{t("expense.category")}</Label>
                 <Select
                   value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value as any })}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value as any })
+                  }
                 >
                   <SelectTrigger id="category">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="electricity">{t('expense.electricity')}</SelectItem>
-                    <SelectItem value="water">{t('expense.water')}</SelectItem>
-                    <SelectItem value="maintenance">{t('expense.maintenance')}</SelectItem>
-                    <SelectItem value="staff">{t('expense.staff')}</SelectItem>
-                    <SelectItem value="other">{t('expense.other')}</SelectItem>
+                    <SelectItem value="electricity">
+                      {t("expense.electricity")}
+                    </SelectItem>
+                    <SelectItem value="water">{t("expense.water")}</SelectItem>
+                    <SelectItem value="maintenance">
+                      {t("expense.maintenance")}
+                    </SelectItem>
+                    <SelectItem value="staff">{t("expense.staff")}</SelectItem>
+                    <SelectItem value="other">{t("expense.other")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="amount">{t('expense.amount')}</Label>
+                <Label htmlFor="amount">{t("expense.amount")}</Label>
                 <Input
                   id="amount"
                   type="number"
                   required
                   min="0"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, amount: Number(e.target.value) })
+                  }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="date">{t('expense.date')}</Label>
+                <Label htmlFor="date">{t("expense.date")}</Label>
                 <Input
                   id="date"
                   type="date"
                   required
                   value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">{t('expense.description')}</Label>
+                <Label htmlFor="description">{t("expense.description")}</Label>
                 <textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   rows={3}
                 />
@@ -315,11 +351,9 @@ export default function ExpensesPage() {
                     resetForm();
                   }}
                 >
-                  {t('common.cancel')}
+                  {t("common.cancel")}
                 </Button>
-                <Button type="submit">
-                  {t('common.save')}
-                </Button>
+                <Button type="submit">{t("common.save")}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -334,8 +368,7 @@ export default function ExpensesPage() {
           onCancel={() => setShowConfirm(false)}
           type={confirmConfig.type}
         />
-      </div>
+      </PageContainer>
     </div>
   );
 }
-

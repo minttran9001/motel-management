@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
+import Modal from "@/components/Modal";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
 
 interface Room {
@@ -84,8 +87,12 @@ export default function RoomStatusPage() {
   const [isDebt, setIsDebt] = useState<boolean>(false);
   const [processingCheckOut, setProcessingCheckOut] = useState(false);
 
+  // Check-in state
+  const [processingCheckIn, setProcessingCheckIn] = useState(false);
+
   // Update room state
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [processingUpdate, setProcessingUpdate] = useState(false);
 
   // Cancel room state
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -140,10 +147,9 @@ export default function RoomStatusPage() {
 
   const fetchExtrasOptions = async () => {
     try {
-      const response = await fetch("/api/extras-options");
-      const result = await response.json();
-      if (result.success) {
-        setExtrasOptions(result.data);
+      const response = await apiClient.extrasOptions.getAll();
+      if (response.data.success) {
+        setExtrasOptions(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching extras options:", error);
@@ -152,10 +158,9 @@ export default function RoomStatusPage() {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch("/api/rooms");
-      const result = await response.json();
-      if (result.success) {
-        setRooms(result.data);
+      const response = await apiClient.rooms.getAll();
+      if (response.data.success) {
+        setRooms(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching rooms:", error);
@@ -180,11 +185,11 @@ export default function RoomStatusPage() {
     setShowExtrasDropdown(false);
 
     try {
-      const res = await fetch("/api/hourly-pricing");
-      const data = await res.json();
-      if (data.success) {
-        const rule = data.data.find(
-          (r: any) => r.category === room.category && r.bedType === room.bedType
+      const res = await apiClient.hourlyPricing.getAll();
+      if (res.data.success) {
+        const rule = res.data.data.find(
+          (r: { category: string; bedType: number; dailyPrice: number }) =>
+            r.category === room.category && r.bedType === room.bedType
         );
         setDailyPrice(
           rule ? rule.dailyPrice.toString() : room.price.toString()
@@ -192,7 +197,7 @@ export default function RoomStatusPage() {
       } else {
         setDailyPrice(room.price.toString());
       }
-    } catch (err) {
+    } catch {
       setDailyPrice(room.price.toString());
     }
 
@@ -201,26 +206,22 @@ export default function RoomStatusPage() {
 
   const confirmCheckIn = async () => {
     if (!selectedRoom) return;
+    setProcessingCheckIn(true);
     try {
-      const response = await fetch(`/api/rooms/${selectedRoom._id}/check-in`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName,
-          identityCode,
-          origin,
-          phoneNumber:
-            phoneNumber && phoneNumber.trim() !== ""
-              ? phoneNumber.trim()
-              : undefined,
-          numberOfPeople: numberOfPeople ? Number(numberOfPeople) : 1,
-          dailyPrice: dailyPrice ? Number(dailyPrice) : 0,
-          deposit: deposit ? Number(deposit) : 0,
-          extras: extras.length > 0 ? extras : undefined,
-        }),
+      const response = await apiClient.rooms.checkIn(selectedRoom._id, {
+        customerName,
+        identityCode,
+        origin,
+        phoneNumber:
+          phoneNumber && phoneNumber.trim() !== ""
+            ? phoneNumber.trim()
+            : undefined,
+        numberOfPeople: numberOfPeople ? Number(numberOfPeople) : 1,
+        dailyPrice: dailyPrice ? Number(dailyPrice) : 0,
+        deposit: deposit ? Number(deposit) : 0,
+        extras: extras.length > 0 ? extras : undefined,
       });
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         // Show success message
         showToast.success(
           t("room.checkInSuccess", { roomNumber: selectedRoom.roomNumber })
@@ -238,11 +239,12 @@ export default function RoomStatusPage() {
         fetchRooms();
         setShowCheckInModal(false);
         resetCheckInFields();
-      } else {
-        showToast.error(result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in check-in:", error);
+      showToast.error(error.response?.data?.error || "Error checking in");
+    } finally {
+      setProcessingCheckIn(false);
     }
   };
 
@@ -262,14 +264,12 @@ export default function RoomStatusPage() {
     // Reset debt checkbox state every time checkout modal opens
     setIsDebt(false);
     try {
-      const response = await fetch(`/api/rooms/${room._id}/check-out/preview`);
-      const result = await response.json();
-      console.log(result);
-      if (result.success) {
-        setBillingPreview(result.data);
+      const response = await apiClient.rooms.checkOutPreview(room._id);
+      if (response.data.success) {
+        setBillingPreview(response.data.data);
         // finalAmount is the amount collected at checkout (total - deposit)
         // The total amount to charge is: room price + extras
-        const previewExtras = result.data.extras || room.extras || [];
+        const previewExtras = response.data.data.extras || room.extras || [];
         const extrasTotal = previewExtras.reduce(
           (
             sum: number,
@@ -277,15 +277,17 @@ export default function RoomStatusPage() {
           ) => sum + extra.quantity * extra.price,
           0
         );
-        const totalAmount = result.data.calculation.totalPrice + extrasTotal;
-        const deposit = result.data.deposit || 0;
+        const totalAmount =
+          response.data.data.calculation.totalPrice + extrasTotal;
+        const deposit = response.data.data.deposit || 0;
         setFinalAmount(totalAmount - deposit);
         setShowCheckOutModal(true);
-      } else {
-        showToast.error(result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching billing preview:", error);
+      showToast.error(
+        error.response?.data?.error || "Error fetching billing preview"
+      );
     }
   };
 
@@ -325,10 +327,6 @@ export default function RoomStatusPage() {
     setExtras(extras.filter((_, i) => i !== index));
   };
 
-  const getExtrasTotal = () => {
-    return extras.reduce((sum, extra) => sum + extra.quantity * extra.price, 0);
-  };
-
   const confirmCheckOut = async () => {
     if (!selectedRoom) return;
     setProcessingCheckOut(true);
@@ -348,19 +346,13 @@ export default function RoomStatusPage() {
       const paidNow = finalAmount;
       const remainingDebt = Math.max(netToPay - paidNow, 0);
 
-      const response = await fetch(`/api/rooms/${selectedRoom._id}/check-out`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          finalAmount: paidNow,
-          isDebt,
-          debtRemaining: isDebt ? remainingDebt : 0,
-          extras: roomExtras.length > 0 ? roomExtras : undefined,
-        }),
+      const response = await apiClient.rooms.checkOut(selectedRoom._id, {
+        finalAmount: paidNow,
+        isDebt,
+        debtRemaining: isDebt ? remainingDebt : 0,
+        extras: roomExtras.length > 0 ? roomExtras : undefined,
       });
-      const result = await response.json();
-      console.log(result);
-      if (result.success) {
+      if (response.data.success) {
         fetchRooms();
         setShowCheckOutModal(false);
         setBillingPreview(null);
@@ -373,11 +365,10 @@ export default function RoomStatusPage() {
           ),
         });
         showToast.success(successMsg);
-      } else {
-        showToast.error(result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in check-out:", error);
+      showToast.error(error.response?.data?.error || "Error checking out");
     } finally {
       setProcessingCheckOut(false);
     }
@@ -416,36 +407,32 @@ export default function RoomStatusPage() {
 
   const confirmUpdate = async () => {
     if (!selectedRoom) return;
+    setProcessingUpdate(true);
     try {
-      const response = await fetch(`/api/rooms/${selectedRoom._id}/update`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName,
-          identityCode,
-          origin,
-          phoneNumber:
-            phoneNumber && phoneNumber.trim() !== ""
-              ? phoneNumber.trim()
-              : undefined,
-          numberOfPeople: numberOfPeople ? Number(numberOfPeople) : 1,
-          dailyPrice: dailyPrice ? Number(dailyPrice) : 0,
-          deposit: deposit ? Number(deposit) : 0,
-          extras: extras.length > 0 ? extras : undefined,
-        }),
+      const response = await apiClient.rooms.updateRoom(selectedRoom._id, {
+        customerName,
+        identityCode,
+        origin,
+        phoneNumber:
+          phoneNumber && phoneNumber.trim() !== ""
+            ? phoneNumber.trim()
+            : undefined,
+        numberOfPeople: numberOfPeople ? Number(numberOfPeople) : 1,
+        dailyPrice: dailyPrice ? Number(dailyPrice) : 0,
+        deposit: deposit ? Number(deposit) : 0,
+        extras: extras.length > 0 ? extras : undefined,
       });
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         fetchRooms();
         setShowUpdateModal(false);
         resetCheckInFields();
         showToast.success(t("room.updateSuccess"));
-      } else {
-        showToast.error(result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating room:", error);
-      showToast.error(t("common.error"));
+      showToast.error(error.response?.data?.error || t("common.error"));
+    } finally {
+      setProcessingUpdate(false);
     }
   };
 
@@ -459,25 +446,18 @@ export default function RoomStatusPage() {
     if (!selectedRoom) return;
     setProcessingCancel(true);
     try {
-      const response = await fetch(`/api/rooms/${selectedRoom._id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reason: cancellationReason || undefined,
-        }),
+      const response = await apiClient.rooms.cancel(selectedRoom._id, {
+        reason: cancellationReason || undefined,
       });
-      const result = await response.json();
-      if (result.success) {
+      if (response.data.success) {
         fetchRooms();
         setShowCancelModal(false);
         setCancellationReason("");
         showToast.success(t("room.cancelSuccess"));
-      } else {
-        showToast.error(result.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error cancelling room:", error);
-      showToast.error(t("common.error"));
+      showToast.error(error.response?.data?.error || t("common.error"));
     } finally {
       setProcessingCancel(false);
     }
@@ -526,7 +506,7 @@ export default function RoomStatusPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContainer>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
             {t("room.gridTitle")}
@@ -762,8 +742,8 @@ export default function RoomStatusPage() {
                         onClick={() => handleCheckIn(room)}
                         className={`w-full text-white text-base font-black py-4 rounded-2xl transition-all shadow-lg shadow-gray-100 ${
                           isVip
-                            ? "bg-amber-600 hover:bg-amber-700"
-                            : "bg-green-600 hover:bg-green-700"
+                            ? "bg-amber-400 hover:bg-amber-400"
+                            : "bg-green-400 hover:bg-green-500"
                         }`}
                       >
                         {t("room.checkIn")}
@@ -772,20 +752,20 @@ export default function RoomStatusPage() {
                       <div className="space-y-2">
                         <button
                           onClick={() => handleCheckOutClick(room)}
-                          className="w-full bg-red-600 text-white text-base font-black py-4 rounded-2xl hover:bg-red-700 transition-all shadow-lg shadow-red-100"
+                          className="w-full bg-red-400 text-white text-base font-black py-4 rounded-2xl hover:bg-red-500 transition-all shadow-lg shadow-red-100"
                         >
                           {t("room.checkOut")}
                         </button>
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => handleUpdateClick(room)}
-                            className="bg-blue-600 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-all"
+                            className="bg-blue-400 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-blue-500 transition-all"
                           >
                             {t("room.update")}
                           </button>
                           <button
                             onClick={() => handleCancelClick(room)}
-                            className="bg-orange-600 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-orange-700 transition-all"
+                            className="bg-orange-400 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-orange-500 transition-all"
                           >
                             {t("room.cancel")}
                           </button>
@@ -945,7 +925,7 @@ export default function RoomStatusPage() {
                           {room.isAvailable ? (
                             <button
                               onClick={() => handleCheckIn(room)}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700"
+                              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-400 text-white hover:bg-green-500"
                             >
                               {t("room.checkIn")}
                             </button>
@@ -953,19 +933,19 @@ export default function RoomStatusPage() {
                             <>
                               <button
                                 onClick={() => handleCheckOutClick(room)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700"
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-400 text-white hover:bg-red-500"
                               >
                                 {t("room.checkOut")}
                               </button>
                               <button
                                 onClick={() => handleUpdateClick(room)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-400 text-white hover:bg-blue-500"
                               >
                                 {t("room.update")}
                               </button>
                               <button
                                 onClick={() => handleCancelClick(room)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700"
+                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-400 text-white hover:bg-orange-500"
                               >
                                 {t("room.cancel")}
                               </button>
@@ -983,132 +963,17 @@ export default function RoomStatusPage() {
 
         {/* Check-in Modal */}
         {showCheckInModal && selectedRoom && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-xl bg-white max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {t("room.checkIn")} - {t("room.roomNumber")}{" "}
-                {selectedRoom.roomNumber}
-              </h3>
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.customerName")}
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder={t("common.enterGuestName")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.identityCode")}
-                  </label>
-                  <input
-                    type="text"
-                    value={identityCode}
-                    onChange={(e) => setIdentityCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder={t("room.idPlaceholder")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.origin")}
-                  </label>
-                  <input
-                    type="text"
-                    value={origin}
-                    onChange={(e) => setOrigin(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder={t("room.originPlaceholder")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.phoneNumber")} ({t("discount.optional")})
-                  </label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder={t("room.phoneNumberPlaceholder")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.numberOfPeople")}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={numberOfPeople}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || Number(value) >= 1) {
-                        setNumberOfPeople(value);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (!e.target.value || Number(e.target.value) < 1) {
-                        setNumberOfPeople("1");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.dailyPrice")} (VND)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={dailyPrice}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || Number(value) >= 0) {
-                        setDailyPrice(value);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (!e.target.value || Number(e.target.value) < 0) {
-                        setDailyPrice("");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.deposit")} (VND)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={deposit}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || Number(value) >= 0) {
-                        setDeposit(value);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (!e.target.value || Number(e.target.value) < 0) {
-                        setDeposit("0");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
+          <Modal
+            isOpen={showCheckInModal}
+            onClose={() => {
+              setShowCheckInModal(false);
+              resetCheckInFields();
+            }}
+            title={`${t("room.checkIn")} - ${t("room.roomNumber")} ${
+              selectedRoom.roomNumber
+            }`}
+            maxWidth="2xl"
+            footer={
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
@@ -1119,358 +984,151 @@ export default function RoomStatusPage() {
                 </button>
                 <button
                   onClick={confirmCheckIn}
-                  disabled={!customerName.trim()}
-                  className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  disabled={!customerName.trim() || processingCheckIn}
+                  className="px-4 py-2 text-sm bg-green-400 text-white rounded-lg hover:bg-green-500 disabled:bg-gray-200 disabled:cursor-not-allowed"
                 >
-                  {t("room.checkIn")}
+                  {processingCheckIn ? t("common.loading") : t("room.checkIn")}
                 </button>
               </div>
+            }
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.customerName")}
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder={t("common.enterGuestName")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.identityCode")}
+                </label>
+                <input
+                  type="text"
+                  value={identityCode}
+                  onChange={(e) => setIdentityCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder={t("room.idPlaceholder")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.origin")}
+                </label>
+                <input
+                  type="text"
+                  value={origin}
+                  onChange={(e) => setOrigin(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder={t("room.originPlaceholder")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.phoneNumber")} ({t("discount.optional")})
+                </label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder={t("room.phoneNumberPlaceholder")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.numberOfPeople")}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={numberOfPeople}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || Number(value) >= 1) {
+                      setNumberOfPeople(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || Number(e.target.value) < 1) {
+                      setNumberOfPeople("1");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.dailyPrice")} (VND)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={dailyPrice}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || Number(value) >= 0) {
+                      setDailyPrice(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || Number(e.target.value) < 0) {
+                      setDailyPrice("");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.deposit")} (VND)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={deposit}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || Number(value) >= 0) {
+                      setDeposit(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || Number(e.target.value) < 0) {
+                      setDeposit("0");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="0"
+                />
+              </div>
             </div>
-          </div>
+          </Modal>
         )}
 
         {/* Check-out Modal */}
         {showCheckOutModal && billingPreview && selectedRoom && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-6 border w-full max-w-2xl shadow-lg rounded-2xl bg-white max-h-[95vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {t("room.checkOut")} - {t("room.roomNumber")}{" "}
-                  {selectedRoom.roomNumber}
-                </h3>
-                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">
-                  {t(`room.${selectedRoom.category}`)}
-                </span>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                <div className="pb-4 border-b border-gray-100">
-                  <div className="mb-3">
-                    <p className="text-xs text-gray-500 mb-1">
-                      {t("room.customerName")}
-                    </p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {billingPreview.customerName}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        {t("room.checkIn")}
-                      </p>
-                      <p className="text-sm font-medium text-gray-700">
-                        {formatDateTime(billingPreview.checkIn)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        {t("room.checkOut")}
-                      </p>
-                      <p className="text-sm font-medium text-gray-700">
-                        {formatDateTime(billingPreview.checkOut)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <p className="text-xs text-gray-500 mb-1">
-                      {t("room.phoneNumber")}
-                    </p>
-                    <p className="text-sm font-medium text-gray-700">
-                      {billingPreview.phoneNumber ||
-                        selectedRoom.phoneNumber ||
-                        "-"}
-                    </p>
-                  </div>
-                  {(billingPreview.numberOfPeople ||
-                    selectedRoom.numberOfPeople) &&
-                    (billingPreview.numberOfPeople ||
-                      selectedRoom.numberOfPeople ||
-                      0) > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs text-gray-500 mb-1">
-                          {t("room.numberOfPeople")}
-                        </p>
-                        <p className="text-sm font-medium text-gray-700">
-                          {billingPreview.numberOfPeople ||
-                            selectedRoom.numberOfPeople}
-                        </p>
-                      </div>
-                    )}
-                </div>
-
-                {/* Price Breakdown Section */}
-                <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">
-                    {t("room.priceBreakdown")}
-                  </h4>
-
-                  {/* Room Price Breakdown */}
-                  <div className="space-y-2">
-                    {billingPreview.calculation.breakdown.days > 0 && (
-                      <div className="flex justify-between items-center text-sm bg-white p-2.5 rounded-lg border border-gray-200">
-                        <span className="text-gray-700">
-                          {billingPreview.calculation.breakdown.days}{" "}
-                          {t("room.dayUnit")} ×{" "}
-                          {new Intl.NumberFormat("vi-VN").format(
-                            Math.round(
-                              billingPreview.calculation.breakdown.dailyPrice /
-                                billingPreview.calculation.breakdown.days
-                            )
-                          )}{" "}
-                          VND/{t("room.dayUnit")}
-                        </span>
-                        <span className="text-gray-900 font-semibold">
-                          ={" "}
-                          {new Intl.NumberFormat("vi-VN").format(
-                            billingPreview.calculation.breakdown.dailyPrice
-                          )}{" "}
-                          VND
-                        </span>
-                      </div>
-                    )}
-
-                    {billingPreview.calculation.breakdown.hours > 0 && (
-                      <div className="flex justify-between items-center text-sm bg-white p-2.5 rounded-lg border border-gray-200">
-                        <span className="text-gray-700">
-                          {billingPreview.calculation.breakdown.hours}{" "}
-                          {t("room.hourUnit")} ({t("room.hourlyRate")})
-                        </span>
-                        <span className="text-gray-900 font-semibold">
-                          ={" "}
-                          {new Intl.NumberFormat("vi-VN").format(
-                            billingPreview.calculation.breakdown.hourlyPrice
-                          )}{" "}
-                          VND
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Room Subtotal */}
-                    <div className="flex justify-between items-center text-sm font-semibold pt-2 border-t border-gray-300">
-                      <span className="text-gray-700">
-                        {t("room.roomPrice")}
-                      </span>
-                      <span className="text-gray-900">
-                        {new Intl.NumberFormat("vi-VN").format(
-                          billingPreview.calculation.totalPrice
-                        )}{" "}
-                        VND
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Extras Breakdown */}
-                  {(billingPreview.extras || selectedRoom.extras || []).length >
-                    0 && (
-                    <div className="pt-3 border-t border-gray-300 space-y-2">
-                      <p className="text-xs text-gray-500 mb-2 font-semibold uppercase">
-                        {t("room.extras")}
-                      </p>
-                      {(billingPreview.extras || selectedRoom.extras || []).map(
-                        (extra, index) => (
-                          <div
-                            key={index}
-                            className="flex justify-between items-center text-sm bg-white p-2 rounded-lg"
-                          >
-                            <span className="text-gray-600">
-                              {extra.name} × {extra.quantity} @{" "}
-                              {new Intl.NumberFormat("vi-VN").format(
-                                extra.price
-                              )}{" "}
-                              VND
-                            </span>
-                            <span className="text-gray-900 font-semibold">
-                              {new Intl.NumberFormat("vi-VN").format(
-                                extra.quantity * extra.price
-                              )}{" "}
-                              VND
-                            </span>
-                          </div>
-                        )
-                      )}
-                      <div className="flex justify-between items-center text-sm font-semibold pt-2 border-t border-gray-300">
-                        <span className="text-gray-700">
-                          {t("room.extrasTotal")}
-                        </span>
-                        <span className="text-gray-900">
-                          {new Intl.NumberFormat("vi-VN").format(
-                            (
-                              billingPreview.extras ||
-                              selectedRoom.extras ||
-                              []
-                            ).reduce(
-                              (sum, extra) =>
-                                sum + extra.quantity * extra.price,
-                              0
-                            )
-                          )}{" "}
-                          VND
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Subtotal (Room + Extras) */}
-                  <div className="pt-3 border-t-2 border-gray-400 flex justify-between items-center">
-                    <span className="text-base font-bold text-gray-900">
-                      {t("room.subtotal")}
-                    </span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {new Intl.NumberFormat("vi-VN").format(
-                        billingPreview.calculation.totalPrice +
-                          (
-                            billingPreview.extras ||
-                            selectedRoom.extras ||
-                            []
-                          ).reduce(
-                            (sum, extra) => sum + extra.quantity * extra.price,
-                            0
-                          )
-                      )}{" "}
-                      VND
-                    </span>
-                  </div>
-
-                  {/* Deposit Deduction */}
-                  {billingPreview.deposit > 0 && (
-                    <div className="flex justify-between items-center text-sm p-3 bg-amber-50 rounded-lg border border-amber-200">
-                      <span className="text-amber-700 font-bold">
-                        {t("room.deposit")} ({t("room.alreadyPaid")})
-                      </span>
-                      <span className="text-amber-700 font-black">
-                        -
-                        {new Intl.NumberFormat("vi-VN").format(
-                          billingPreview.deposit
-                        )}{" "}
-                        VND
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Final Amount */}
-                  <div className="pt-3 mt-2 border-t-2 border-dashed border-gray-400 space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-black text-gray-900">
-                        {finalAmount >= 0
-                          ? t("room.amountToPay")
-                          : t("room.amountToRefund")}
-                      </span>
-                      <span
-                        className={`text-2xl font-black ${
-                          finalAmount >= 0 ? "text-red-600" : "text-green-600"
-                        }`}
-                      >
-                        {new Intl.NumberFormat("vi-VN").format(
-                          Math.abs(finalAmount)
-                        )}{" "}
-                        VND
-                      </span>
-                    </div>
-
-                    {finalAmount > 0 &&
-                      (() => {
-                        // Calculate if there's actually remaining debt
-                        const subtotalWithExtras =
-                          (billingPreview?.calculation.totalPrice || 0) +
-                          (
-                            billingPreview?.extras ||
-                            selectedRoom.extras ||
-                            []
-                          ).reduce(
-                            (sum, extra) => sum + extra.quantity * extra.price,
-                            0
-                          );
-                        const depositAmount = billingPreview?.deposit || 0;
-                        const netToPay = subtotalWithExtras - depositAmount;
-                        const hasRemainingDebt = finalAmount < netToPay;
-
-                        return (
-                          <div className="flex items-start gap-2 pt-2 border-t border-gray-300">
-                            <input
-                              id="debtCheckbox"
-                              type="checkbox"
-                              checked={isDebt}
-                              onChange={(e) => {
-                                // Only allow checking if there's remaining debt
-                                if (e.target.checked && !hasRemainingDebt) {
-                                  showToast.error(
-                                    t("room.debtErrorFullAmount") ||
-                                      "Cannot mark as debt if full amount is paid"
-                                  );
-                                  return;
-                                }
-                                setIsDebt(e.target.checked);
-                              }}
-                              disabled={!hasRemainingDebt}
-                              className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-                            />
-                            <div>
-                              <label
-                                htmlFor="debtCheckbox"
-                                className={`text-sm font-semibold ${
-                                  hasRemainingDebt
-                                    ? "text-gray-800"
-                                    : "text-gray-400"
-                                }`}
-                              >
-                                {t("room.debtCheckbox")}
-                              </label>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {hasRemainingDebt
-                                  ? t("room.debtNote")
-                                  : t("room.debtNoteFullAmount") ||
-                                    "Enter less than the full amount to mark as debt"}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                  </div>
-                </div>
-
-                {selectedRoom.identityCode && (
-                  <div className="mt-4 p-3 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
-                    <p className="text-sm font-bold text-yellow-800 flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5 shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                      {t("room.returnIdentityCard")}
-                    </p>
-                  </div>
-                )}
-
-                <div className="mt-6 pt-4 border-t border-gray-100">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    {t("room.finalPrice")} (VND)
-                  </label>
-                  <input
-                    type="number"
-                    value={finalAmount}
-                    onChange={(e) => {
-                      setFinalAmount(Number(e.target.value));
-                    }}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-2xl font-black ${
-                      finalAmount >= 0
-                        ? "text-red-700 border-red-100"
-                        : "text-green-700 border-green-100"
-                    }`}
-                  />
-                  <p className="text-[10px] text-gray-400 mt-2 italic">
-                    {t("room.priceAdjustmentNote")}
-                  </p>
-                </div>
-              </div>
-
+          <Modal
+            isOpen={showCheckOutModal}
+            onClose={() => {
+              setShowCheckOutModal(false);
+              setBillingPreview(null);
+              setSelectedRoom(null);
+            }}
+            title={`${t("room.checkOut")} - ${t("room.roomNumber")} ${
+              selectedRoom.roomNumber
+            }`}
+            maxWidth="2xl"
+            footer={
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -1487,275 +1145,358 @@ export default function RoomStatusPage() {
                 <button
                   onClick={confirmCheckOut}
                   disabled={processingCheckOut}
-                  className="flex-2 px-4 py-3 text-sm font-bold bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg shadow-red-100"
+                  className="flex-2 px-4 py-3 text-sm font-bold bg-red-400 text-white rounded-xl hover:bg-red-500 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg shadow-red-100"
                 >
                   {processingCheckOut
                     ? t("common.loading")
                     : t("room.checkOut")}
                 </button>
               </div>
+            }
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end mb-2">
+                <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded">
+                  {t(`room.${selectedRoom.category}`)}
+                </span>
+              </div>
+              <div className="pb-4 border-b border-gray-100">
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("room.customerName")}
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {billingPreview.customerName}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {t("room.checkIn")}
+                    </p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {formatDateTime(billingPreview.checkIn)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {t("room.checkOut")}
+                    </p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {formatDateTime(billingPreview.checkOut)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-1">
+                    {t("room.phoneNumber")}
+                  </p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {billingPreview.phoneNumber ||
+                      selectedRoom.phoneNumber ||
+                      "-"}
+                  </p>
+                </div>
+                {(billingPreview.numberOfPeople ||
+                  selectedRoom.numberOfPeople) &&
+                  (billingPreview.numberOfPeople ||
+                    selectedRoom.numberOfPeople ||
+                    0) > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-1">
+                        {t("room.numberOfPeople")}
+                      </p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {billingPreview.numberOfPeople ||
+                          selectedRoom.numberOfPeople}
+                      </p>
+                    </div>
+                  )}
+              </div>
+
+              {/* Price Breakdown Section */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
+                <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wide">
+                  {t("room.priceBreakdown")}
+                </h4>
+
+                {/* Room Price Breakdown */}
+                <div className="space-y-2">
+                  {billingPreview.calculation.breakdown.days > 0 && (
+                    <div className="flex justify-between items-center text-sm bg-white p-2.5 rounded-lg border border-gray-200">
+                      <span className="text-gray-700">
+                        {billingPreview.calculation.breakdown.days}{" "}
+                        {t("room.dayUnit")} ×{" "}
+                        {new Intl.NumberFormat("vi-VN").format(
+                          Math.round(
+                            billingPreview.calculation.breakdown.dailyPrice /
+                              billingPreview.calculation.breakdown.days
+                          )
+                        )}{" "}
+                        VND/{t("room.dayUnit")}
+                      </span>
+                      <span className="text-gray-900 font-semibold">
+                        ={" "}
+                        {new Intl.NumberFormat("vi-VN").format(
+                          billingPreview.calculation.breakdown.dailyPrice
+                        )}{" "}
+                        VND
+                      </span>
+                    </div>
+                  )}
+
+                  {billingPreview.calculation.breakdown.hours > 0 && (
+                    <div className="flex justify-between items-center text-sm bg-white p-2.5 rounded-lg border border-gray-200">
+                      <span className="text-gray-700">
+                        {billingPreview.calculation.breakdown.hours}{" "}
+                        {t("room.hourUnit")} ({t("room.hourlyRate")})
+                      </span>
+                      <span className="text-gray-900 font-semibold">
+                        ={" "}
+                        {new Intl.NumberFormat("vi-VN").format(
+                          billingPreview.calculation.breakdown.hourlyPrice
+                        )}{" "}
+                        VND
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Room Subtotal */}
+                  <div className="flex justify-between items-center text-sm font-semibold pt-2 border-t border-gray-300">
+                    <span className="text-gray-700">{t("room.roomPrice")}</span>
+                    <span className="text-gray-900">
+                      {new Intl.NumberFormat("vi-VN").format(
+                        billingPreview.calculation.totalPrice
+                      )}{" "}
+                      VND
+                    </span>
+                  </div>
+                </div>
+
+                {/* Extras Breakdown */}
+                {(billingPreview.extras || selectedRoom.extras || []).length >
+                  0 && (
+                  <div className="pt-3 border-t border-gray-300 space-y-2">
+                    <p className="text-xs text-gray-500 mb-2 font-semibold uppercase">
+                      {t("room.extras")}
+                    </p>
+                    {(billingPreview.extras || selectedRoom.extras || []).map(
+                      (extra, index) => (
+                        <div
+                          key={index}
+                          className="flex justify-between items-center text-sm bg-white p-2 rounded-lg"
+                        >
+                          <span className="text-gray-600">
+                            {extra.name} × {extra.quantity} @{" "}
+                            {new Intl.NumberFormat("vi-VN").format(extra.price)}{" "}
+                            VND
+                          </span>
+                          <span className="text-gray-900 font-semibold">
+                            {new Intl.NumberFormat("vi-VN").format(
+                              extra.quantity * extra.price
+                            )}{" "}
+                            VND
+                          </span>
+                        </div>
+                      )
+                    )}
+                    <div className="flex justify-between items-center text-sm font-semibold pt-2 border-t border-gray-300">
+                      <span className="text-gray-700">
+                        {t("room.extrasTotal")}
+                      </span>
+                      <span className="text-gray-900">
+                        {new Intl.NumberFormat("vi-VN").format(
+                          (
+                            billingPreview.extras ||
+                            selectedRoom.extras ||
+                            []
+                          ).reduce(
+                            (sum, extra) => sum + extra.quantity * extra.price,
+                            0
+                          )
+                        )}{" "}
+                        VND
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Subtotal (Room + Extras) */}
+                <div className="pt-3 border-t-2 border-gray-400 flex justify-between items-center">
+                  <span className="text-base font-bold text-gray-900">
+                    {t("room.subtotal")}
+                  </span>
+                  <span className="text-lg font-bold text-gray-900">
+                    {new Intl.NumberFormat("vi-VN").format(
+                      billingPreview.calculation.totalPrice +
+                        (
+                          billingPreview.extras ||
+                          selectedRoom.extras ||
+                          []
+                        ).reduce(
+                          (sum, extra) => sum + extra.quantity * extra.price,
+                          0
+                        )
+                    )}{" "}
+                    VND
+                  </span>
+                </div>
+
+                {/* Deposit Deduction */}
+                {billingPreview.deposit > 0 && (
+                  <div className="flex justify-between items-center text-sm p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <span className="text-amber-700 font-bold">
+                      {t("room.deposit")} ({t("room.alreadyPaid")})
+                    </span>
+                    <span className="text-amber-700 font-black">
+                      -
+                      {new Intl.NumberFormat("vi-VN").format(
+                        billingPreview.deposit
+                      )}{" "}
+                      VND
+                    </span>
+                  </div>
+                )}
+
+                {/* Final Amount */}
+                <div className="pt-3 mt-2 border-t-2 border-dashed border-gray-400 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-black text-gray-900">
+                      {finalAmount >= 0
+                        ? t("room.amountToPay")
+                        : t("room.amountToRefund")}
+                    </span>
+                    <span
+                      className={`text-2xl font-black ${
+                        finalAmount >= 0 ? "text-red-600" : "text-green-600"
+                      }`}
+                    >
+                      {new Intl.NumberFormat("vi-VN").format(
+                        Math.abs(finalAmount)
+                      )}{" "}
+                      VND
+                    </span>
+                  </div>
+
+                  {finalAmount > 0 &&
+                    (() => {
+                      // Calculate if there's actually remaining debt
+                      const subtotalWithExtras =
+                        (billingPreview?.calculation.totalPrice || 0) +
+                        (
+                          billingPreview?.extras ||
+                          selectedRoom.extras ||
+                          []
+                        ).reduce(
+                          (sum, extra) => sum + extra.quantity * extra.price,
+                          0
+                        );
+                      const depositAmount = billingPreview?.deposit || 0;
+                      const netToPay = subtotalWithExtras - depositAmount;
+                      const hasRemainingDebt = finalAmount < netToPay;
+
+                      return (
+                        <div className="flex items-start gap-2 pt-2 border-t border-gray-300">
+                          <input
+                            id="debtCheckbox"
+                            type="checkbox"
+                            checked={isDebt}
+                            onChange={(e) => {
+                              // Only allow checking if there's remaining debt
+                              if (e.target.checked && !hasRemainingDebt) {
+                                showToast.error(
+                                  t("room.debtErrorFullAmount") ||
+                                    "Cannot mark as debt if full amount is paid"
+                                );
+                                return;
+                              }
+                              setIsDebt(e.target.checked);
+                            }}
+                            disabled={!hasRemainingDebt}
+                            className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                          <div>
+                            <label
+                              htmlFor="debtCheckbox"
+                              className={`text-sm font-semibold ${
+                                hasRemainingDebt
+                                  ? "text-gray-800"
+                                  : "text-gray-400"
+                              }`}
+                            >
+                              {t("room.debtCheckbox")}
+                            </label>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {hasRemainingDebt
+                                ? t("room.debtNote")
+                                : t("room.debtNoteFullAmount") ||
+                                  "Enter less than the full amount to mark as debt"}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                </div>
+              </div>
+
+              {selectedRoom.identityCode && (
+                <div className="mt-4 p-3 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
+                  <p className="text-sm font-bold text-yellow-800 flex items-center gap-2">
+                    <svg
+                      className="w-5 h-5 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                    {t("room.returnIdentityCard")}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  {t("room.finalPrice")} (VND)
+                </label>
+                <input
+                  type="number"
+                  value={finalAmount}
+                  onChange={(e) => {
+                    setFinalAmount(Number(e.target.value));
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-2xl font-black ${
+                    finalAmount >= 0
+                      ? "text-red-700 border-red-100"
+                      : "text-green-700 border-green-100"
+                  }`}
+                />
+                <p className="text-[10px] text-gray-400 mt-2 italic">
+                  {t("room.priceAdjustmentNote")}
+                </p>
+              </div>
             </div>
-          </div>
+          </Modal>
         )}
 
         {/* Update Room Modal */}
         {showUpdateModal && selectedRoom && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-xl bg-white max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {t("room.update")} - {t("room.roomNumber")}{" "}
-                {selectedRoom.roomNumber}
-              </h3>
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.customerName")}
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder={t("common.enterGuestName")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.identityCode")}
-                  </label>
-                  <input
-                    type="text"
-                    value={identityCode}
-                    onChange={(e) => setIdentityCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.origin")}
-                  </label>
-                  <input
-                    type="text"
-                    value={origin}
-                    onChange={(e) => setOrigin(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.phoneNumber")}
-                  </label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder={t("room.phoneNumberPlaceholder")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.numberOfPeople")}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={numberOfPeople}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || Number(value) >= 1) {
-                        setNumberOfPeople(value);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (!e.target.value || Number(e.target.value) < 1) {
-                        setNumberOfPeople("1");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.dailyPrice")} (VND)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={dailyPrice}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || Number(value) >= 0) {
-                        setDailyPrice(value);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (!e.target.value || Number(e.target.value) < 0) {
-                        setDailyPrice("");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.deposit")} (VND)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={deposit}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === "" || Number(value) >= 0) {
-                        setDeposit(value);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (!e.target.value || Number(e.target.value) < 0) {
-                        setDeposit("0");
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="0"
-                  />
-                </div>
-
-                {/* Add Extras Section */}
-                <div className="pt-4 border-t border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-700 mb-3">
-                    {t("room.addExtras")}
-                  </h4>
-                  <div className="grid grid-cols-12 gap-2 mb-2">
-                    <div
-                      className="col-span-5 relative"
-                      ref={extrasDropdownRef}
-                    >
-                      <input
-                        type="text"
-                        placeholder={t("room.extraNamePlaceholder")}
-                        value={extrasSearchQuery}
-                        onChange={(e) => {
-                          setExtrasSearchQuery(e.target.value);
-                          setNewExtraName(e.target.value);
-                          setShowExtrasDropdown(true);
-                        }}
-                        onFocus={() => setShowExtrasDropdown(true)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            if (
-                              filteredExtrasOptions.length > 0 &&
-                              showExtrasDropdown
-                            ) {
-                              selectExtrasOption(filteredExtrasOptions[0]);
-                            } else {
-                              addExtra();
-                            }
-                          } else if (e.key === "Escape") {
-                            setShowExtrasDropdown(false);
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      />
-                      {showExtrasDropdown &&
-                        filteredExtrasOptions.length > 0 && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {filteredExtrasOptions.map((option) => (
-                              <button
-                                key={option._id}
-                                type="button"
-                                onClick={() => selectExtrasOption(option)}
-                                className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none text-sm"
-                              >
-                                <div className="font-medium text-gray-900">
-                                  {option.name}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {new Intl.NumberFormat("vi-VN").format(
-                                    option.price
-                                  )}{" "}
-                                  VND
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                    </div>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder={t("room.quantity")}
-                      value={newExtraQuantity}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || Number(value) >= 1) {
-                          setNewExtraQuantity(value);
-                        }
-                      }}
-                      className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder={t("room.price")}
-                      value={newExtraPrice}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === "" || Number(value) >= 0) {
-                          setNewExtraPrice(value);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addExtra();
-                        }
-                      }}
-                      className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={addExtra}
-                      className="col-span-2 px-3 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-all"
-                    >
-                      {t("common.add")}
-                    </button>
-                  </div>
-                  {extras.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {extras.map((extra, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded"
-                        >
-                          <span className="text-gray-700">
-                            {extra.name} x{extra.quantity}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-900 font-medium">
-                              {new Intl.NumberFormat("vi-VN").format(
-                                extra.quantity * extra.price
-                              )}{" "}
-                              VND
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeExtra(index)}
-                              className="text-red-500 hover:text-red-700 text-lg font-bold w-6 h-6 flex items-center justify-center"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+          <Modal
+            isOpen={showUpdateModal}
+            onClose={() => {
+              setShowUpdateModal(false);
+              resetCheckInFields();
+            }}
+            title={`${t("room.update")} - ${t("room.roomNumber")} ${
+              selectedRoom.roomNumber
+            }`}
+            maxWidth="2xl"
+            footer={
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -1769,40 +1510,276 @@ export default function RoomStatusPage() {
                 </button>
                 <button
                   onClick={confirmUpdate}
-                  className="flex-1 px-4 py-3 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                  disabled={processingUpdate}
+                  className="flex-1 px-4 py-3 text-sm font-bold bg-blue-400 text-white rounded-xl hover:bg-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  {t("room.update")}
+                  {processingUpdate ? t("common.loading") : t("room.update")}
                 </button>
               </div>
+            }
+          >
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.customerName")}
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder={t("common.enterGuestName")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.identityCode")}
+                </label>
+                <input
+                  type="text"
+                  value={identityCode}
+                  onChange={(e) => setIdentityCode(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.origin")}
+                </label>
+                <input
+                  type="text"
+                  value={origin}
+                  onChange={(e) => setOrigin(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.phoneNumber")}
+                </label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder={t("room.phoneNumberPlaceholder")}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.numberOfPeople")}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={numberOfPeople}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || Number(value) >= 1) {
+                      setNumberOfPeople(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || Number(e.target.value) < 1) {
+                      setNumberOfPeople("1");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="1"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.dailyPrice")} (VND)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={dailyPrice}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || Number(value) >= 0) {
+                      setDailyPrice(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || Number(e.target.value) < 0) {
+                      setDailyPrice("");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.deposit")} (VND)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={deposit}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "" || Number(value) >= 0) {
+                      setDeposit(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (!e.target.value || Number(e.target.value) < 0) {
+                      setDeposit("0");
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  placeholder="0"
+                />
+              </div>
+
+              {/* Add Extras Section */}
+              <div className="pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-bold text-gray-700 mb-3">
+                  {t("room.addExtras")}
+                </h4>
+                <div className="grid grid-cols-12 gap-2 mb-2">
+                  <div className="col-span-5 relative" ref={extrasDropdownRef}>
+                    <input
+                      type="text"
+                      placeholder={t("room.extraNamePlaceholder")}
+                      value={extrasSearchQuery}
+                      onChange={(e) => {
+                        setExtrasSearchQuery(e.target.value);
+                        setNewExtraName(e.target.value);
+                        setShowExtrasDropdown(true);
+                      }}
+                      onFocus={() => setShowExtrasDropdown(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (
+                            filteredExtrasOptions.length > 0 &&
+                            showExtrasDropdown
+                          ) {
+                            selectExtrasOption(filteredExtrasOptions[0]);
+                          } else {
+                            addExtra();
+                          }
+                        } else if (e.key === "Escape") {
+                          setShowExtrasDropdown(false);
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    {showExtrasDropdown && filteredExtrasOptions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredExtrasOptions.map((option) => (
+                          <button
+                            key={option._id}
+                            type="button"
+                            onClick={() => selectExtrasOption(option)}
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none text-sm"
+                          >
+                            <div className="font-medium text-gray-900">
+                              {option.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {new Intl.NumberFormat("vi-VN").format(
+                                option.price
+                              )}{" "}
+                              VND
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder={t("room.quantity")}
+                    value={newExtraQuantity}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || Number(value) >= 1) {
+                        setNewExtraQuantity(value);
+                      }
+                    }}
+                    className="col-span-2 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder={t("room.price")}
+                    value={newExtraPrice}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === "" || Number(value) >= 0) {
+                        setNewExtraPrice(value);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addExtra();
+                      }
+                    }}
+                    className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={addExtra}
+                    className="col-span-2 px-3 py-2 bg-blue-400 text-white text-sm font-bold rounded-lg hover:bg-blue-500 transition-all"
+                  >
+                    {t("common.add")}
+                  </button>
+                </div>
+                {extras.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {extras.map((extra, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded"
+                      >
+                        <span className="text-gray-700">
+                          {extra.name} x{extra.quantity}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 font-medium">
+                            {new Intl.NumberFormat("vi-VN").format(
+                              extra.quantity * extra.price
+                            )}{" "}
+                            VND
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeExtra(index)}
+                            className="text-red-500 hover:text-red-700 text-lg font-bold w-6 h-6 flex items-center justify-center"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </Modal>
         )}
 
         {/* Cancel Room Modal */}
         {showCancelModal && selectedRoom && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-5 border w-full max-w-xl shadow-lg rounded-xl bg-white">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {t("room.cancel")} - {t("room.roomNumber")}{" "}
-                {selectedRoom.roomNumber}
-              </h3>
-              <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-4">
-                  {t("room.cancelConfirmation")}
-                </p>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("room.cancellationReason")} ({t("discount.optional")})
-                  </label>
-                  <textarea
-                    value={cancellationReason}
-                    onChange={(e) => setCancellationReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
-                    rows={3}
-                    placeholder={t("room.cancellationReasonPlaceholder")}
-                  />
-                </div>
-              </div>
+          <Modal
+            isOpen={showCancelModal}
+            onClose={() => {
+              setShowCancelModal(false);
+              setCancellationReason("");
+            }}
+            title={`${t("room.cancel")} - ${t("room.roomNumber")} ${
+              selectedRoom.roomNumber
+            }`}
+            maxWidth="xl"
+            footer={
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -1817,17 +1794,35 @@ export default function RoomStatusPage() {
                 <button
                   onClick={confirmCancel}
                   disabled={processingCancel}
-                  className="flex-1 px-4 py-3 text-sm font-bold bg-orange-600 text-white rounded-xl hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 text-sm font-bold bg-orange-400 text-white rounded-xl hover:bg-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {processingCancel
                     ? t("common.loading")
                     : t("room.confirmCancel")}
                 </button>
               </div>
+            }
+          >
+            <div>
+              <p className="text-sm text-gray-600 mb-4">
+                {t("room.cancelConfirmation")}
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {t("room.cancellationReason")} ({t("discount.optional")})
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm"
+                  rows={3}
+                  placeholder={t("room.cancellationReasonPlaceholder")}
+                />
+              </div>
             </div>
-          </div>
+          </Modal>
         )}
-      </div>
+      </PageContainer>
     </div>
   );
 }

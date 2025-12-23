@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Room from "@/models/Room";
 import { calculatePrice } from "@/lib/priceCalculator";
+import { withAuth } from "@/lib/api-wrapper";
 
-export async function GET(
+export const GET = withAuth(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    await connectDB();
+) => {
+  await connectDB();
     const { id } = await params;
 
     const room = await Room.findById(id);
@@ -53,11 +53,4 @@ export async function GET(
         calculation,
       },
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
-  }
-}
+});

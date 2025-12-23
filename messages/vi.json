@@ -253,7 +253,9 @@
     "password": "Mật khẩu",
     "signIn": "Đăng nhập",
     "error": "Email hoặc mật khẩu không đúng",
-    "loading": "Đang đăng nhập..."
+    "loading": "Đang đăng nhập...",
+    "sessionExpired": "Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại.",
+    "success": "Đăng nhập thành công"
   },
   "extras": {
     "title": "Quản lý Tùy chọn Phụ phí",
@@ -312,9 +314,7 @@
     "total": "Tổng",
     "cancelled": "Đã hủy",
     "date": "Ngày",
-    "title": "Tiêu đề",
     "category": "Danh mục",
-    "description": "Mô tả",
     "checkIn": "Ngày nhận phòng",
     "searchPlaceholder": "Tìm kiếm theo số phòng hoặc tên khách...",
     "clearFilters": "Xóa bộ lọc",

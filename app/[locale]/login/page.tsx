@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { showToast } from "@/lib/toast";
 
 export default function LoginPage() {
   const t = useTranslations("login");
@@ -11,13 +12,20 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Check for session expiration message
+  useEffect(() => {
+    const sessionExpired = sessionStorage.getItem('sessionExpired');
+    if (sessionExpired === 'true') {
+      showToast.warning(t("sessionExpired") || "Your session has expired. Please login again.");
+      sessionStorage.removeItem('sessionExpired');
+    }
+  }, [t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const result = await signIn("credentials", {
@@ -27,13 +35,14 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError(t("error"));
+        showToast.error(t("error"));
       } else {
+        showToast.success(t("success") || "Login successful");
         router.push("/dashboard");
         router.refresh();
       }
     } catch (err) {
-      setError(t("error"));
+      showToast.error(t("error"));
     } finally {
       setLoading(false);
     }
@@ -81,15 +90,11 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
-          )}
-
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-blue-800 bg-blue-500 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-500"
             >
               {loading ? t("loading") : t("signIn")}
             </button>

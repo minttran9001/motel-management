@@ -252,7 +252,9 @@
     "password": "Password",
     "signIn": "Sign in",
     "error": "Invalid email or password",
-    "loading": "Signing in..."
+    "loading": "Signing in...",
+    "sessionExpired": "Your session has expired. Please login again.",
+    "success": "Login successful"
   },
   "extras": {
     "title": "Extras Options Management",

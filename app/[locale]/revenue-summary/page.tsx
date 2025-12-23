@@ -8,6 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
 
 interface RevenueData {
   totalRevenue: number;
@@ -90,15 +92,15 @@ export default function RevenueSummaryPage() {
         dateStr = date.toISOString();
       }
 
-      const response = await fetch(
-        `/api/revenue?period=${viewMode}&date=${dateStr}`
-      );
-      const result = await response.json();
+      const response = await apiClient.revenue.get({
+        period: viewMode,
+        date: dateStr,
+      });
 
-      if (result.success) {
-        setRevenue(result.data);
+      if (response.data.success) {
+        setRevenue(response.data.data);
       } else {
-        console.error("Error fetching revenue:", result.error);
+        console.error("Error fetching revenue:", response.data.error);
       }
     } catch (error) {
       console.error("Error fetching revenue:", error);
@@ -132,45 +134,49 @@ export default function RevenueSummaryPage() {
   };
 
   const handleRevenueClick = async () => {
-    if (!revenue) return;
+    if (!revenue || loadingRevenueDetails) return;
     setShowRevenueDetails(true);
     setLoadingDetails(true);
+    setLoadingRevenueDetails(true);
     try {
       // Fetch transactions for the period
       const startDate = new Date(revenue.start).toISOString();
       const endDate = new Date(revenue.end).toISOString();
-      const transactionsRes = await fetch(
-        `/api/transactions?startDate=${startDate}&endDate=${endDate}`
-      );
-      const transactionsResult = await transactionsRes.json();
-      if (transactionsResult.success) {
-        setTransactions(transactionsResult.data);
+      const transactionsRes = await apiClient.transactions.getAll({
+        startDate,
+        endDate,
+      });
+      if (transactionsRes.data.success) {
+        setTransactions(transactionsRes.data.data);
       }
     } catch (error) {
       console.error("Error fetching revenue details:", error);
     } finally {
       setLoadingDetails(false);
+      setLoadingRevenueDetails(false);
     }
   };
 
   const handleExpensesClick = async () => {
-    if (!revenue) return;
+    if (!revenue || loadingExpensesDetails) return;
     setShowExpensesDetails(true);
     setLoadingDetails(true);
+    setLoadingExpensesDetails(true);
     try {
       const startDate = new Date(revenue.start).toISOString();
       const endDate = new Date(revenue.end).toISOString();
-      const response = await fetch(
-        `/api/expenses?startDate=${startDate}&endDate=${endDate}`
-      );
-      const result = await response.json();
-      if (result.success) {
-        setExpenses(result.data);
+      const response = await apiClient.expenses.getAll({
+        startDate,
+        endDate,
+      });
+      if (response.data.success) {
+        setExpenses(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching expenses details:", error);
     } finally {
       setLoadingDetails(false);
+      setLoadingExpensesDetails(false);
     }
   };
 
@@ -225,11 +231,10 @@ export default function RevenueSummaryPage() {
   const fetchMonthlyAnalytics = useCallback(async () => {
     setMonthlyAnalyticsLoading(true);
     try {
-      const response = await fetch(
-        `/api/revenue/monthly-analytics?year=${analyticsYear}`
-      );
-      const result = await response.json();
-      if (result.success) {
+      const response = await apiClient.revenue.monthlyAnalytics({
+        year: analyticsYear,
+      });
+      if (response.data.success) {
         // Localize month names
         const monthNames =
           locale === "vi"
@@ -262,7 +267,7 @@ export default function RevenueSummaryPage() {
                 "December",
               ];
 
-        const localized = result.data.map((item: MonthlyAnalytics) => ({
+        const localized = response.data.data.map((item: MonthlyAnalytics) => ({
           ...item,
           monthName: monthNames[item.month - 1],
         }));
@@ -290,7 +295,7 @@ export default function RevenueSummaryPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContainer>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             {t("revenueSummary.title")}
@@ -311,7 +316,7 @@ export default function RevenueSummaryPage() {
                 onClick={() => setViewMode("month")}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === "month"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-blue-400 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -321,7 +326,7 @@ export default function RevenueSummaryPage() {
                 onClick={() => setViewMode("year")}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === "year"
-                    ? "bg-blue-600 text-white"
+                    ? "bg-blue-400 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -404,7 +409,7 @@ export default function RevenueSummaryPage() {
             >
               <div className="p-5">
                 <div className="flex items-center">
-                  <div className="shrink-0 bg-green-500 rounded-md p-3">
+                  <div className="shrink-0 bg-green-400 rounded-md p-3">
                     <svg
                       className="h-6 w-6 text-white"
                       fill="none"
@@ -450,12 +455,14 @@ export default function RevenueSummaryPage() {
 
             {/* Total Expenses */}
             <div
-              className="bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-lg transition-shadow"
+              className={`bg-white overflow-hidden shadow rounded-lg cursor-pointer hover:shadow-lg transition-shadow ${
+                loadingExpensesDetails ? "opacity-50 cursor-wait" : ""
+              }`}
               onClick={handleExpensesClick}
             >
               <div className="p-5">
                 <div className="flex items-center">
-                  <div className="shrink-0 bg-red-500 rounded-md p-3">
+                  <div className="shrink-0 bg-red-400 rounded-md p-3">
                     <svg
                       className="h-6 w-6 text-white"
                       fill="none"
@@ -505,7 +512,7 @@ export default function RevenueSummaryPage() {
                 <div className="flex items-center">
                   <div
                     className={`shrink-0 rounded-md p-3 ${
-                      revenue.netIncome >= 0 ? "bg-blue-500" : "bg-orange-500"
+                      revenue.netIncome >= 0 ? "bg-blue-400" : "bg-orange-400"
                     }`}
                   >
                     <svg
@@ -568,7 +575,7 @@ export default function RevenueSummaryPage() {
               </select>
               <button
                 onClick={() => setShowMonthlyAnalytics(!showMonthlyAnalytics)}
-                className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="px-4 py-2 text-sm font-semibold bg-green-400 text-white rounded-lg hover:bg-green-400 transition-colors"
               >
                 {showMonthlyAnalytics
                   ? t("revenueSummary.hideMonthlyAnalytics")
@@ -1006,7 +1013,7 @@ export default function RevenueSummaryPage() {
             )}
           </DialogContent>
         </Dialog>
-      </div>
+      </PageContainer>
     </div>
   );
 }

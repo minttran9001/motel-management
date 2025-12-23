@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import apiClient from "@/lib/api-client";
+import { showToast } from "@/lib/toast";
 
 interface HourlyPricing {
   _id: string;
@@ -34,8 +36,6 @@ export default function PriceCalculatorPage() {
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     fetchHourlyPricing();
@@ -53,13 +53,12 @@ export default function PriceCalculatorPage() {
 
   const fetchHourlyPricing = async () => {
     try {
-      const response = await fetch("/api/hourly-pricing");
-      const result = await response.json();
-      if (result.success) {
-        setHourlyPricingOptions(result.data);
-        if (result.data.length > 0) {
-          setSelectedCategory(result.data[0].category);
-          setSelectedBedType(result.data[0].bedType);
+      const response = await apiClient.hourlyPricing.getAll();
+      if (response.data.success) {
+        setHourlyPricingOptions(response.data.data);
+        if (response.data.data.length > 0) {
+          setSelectedCategory(response.data.data[0].category);
+          setSelectedBedType(response.data.data[0].bedType);
         }
       }
     } catch (error) {
@@ -69,7 +68,7 @@ export default function PriceCalculatorPage() {
 
   const handleCalculate = async () => {
     if (!selectedCategory || !selectedBedType || !checkIn || !checkOut) {
-      setError(t("priceCalculator.fillAllFields"));
+      showToast.error(t("priceCalculator.fillAllFields"));
       return;
     }
 
@@ -77,35 +76,38 @@ export default function PriceCalculatorPage() {
     const checkOutDate = new Date(checkOut);
 
     if (checkOutDate <= checkInDate) {
-      setError(t("priceCalculator.checkoutAfterCheckin"));
+      showToast.error(t("priceCalculator.checkoutAfterCheckin"));
       return;
     }
 
     setLoading(true);
-    setError("");
-    setSuccess("");
     setResult(null);
 
     try {
-      const response = await fetch("/api/calculate-price", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category: selectedCategory,
-          bedType: selectedBedType,
-          checkIn: checkInDate.toISOString(),
-          checkOut: checkOutDate.toISOString(),
-        }),
+      const response = await apiClient.calculatePrice.calculate({
+        category: selectedCategory,
+        bedType: selectedBedType,
+        checkIn: checkInDate.toISOString(),
+        checkOut: checkOutDate.toISOString(),
       });
 
-      const result = await response.json();
-      if (result.success) {
-        setResult(result.data);
-      } else {
-        setError(result.error || t("priceCalculator.calculateError"));
+      if (response.data.success) {
+        setResult(response.data.data);
+        showToast.success(
+          t("priceCalculator.calculateSuccess") ||
+            "Price calculated successfully"
+        );
       }
-    } catch (error: any) {
-      setError(error.message || t("priceCalculator.calculateError"));
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { data?: { error?: string } };
+        message?: string;
+      };
+      showToast.error(
+        err.response?.data?.error ||
+          err.message ||
+          t("priceCalculator.calculateError")
+      );
     } finally {
       setLoading(false);
     }
@@ -115,36 +117,17 @@ export default function PriceCalculatorPage() {
     if (!result || !selectedCategory || !selectedBedType) return;
 
     setSaving(true);
-    setError("");
-    setSuccess("");
 
     try {
-      // For demonstration, we'll use a dummy roomId
-      const response = await fetch("/api/revenue", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roomId: "000000000000000000000000",
-          roomNumber: "Calculator-Stay",
-          checkIn: new Date(checkIn).toISOString(),
-          checkOut: new Date(checkOut).toISOString(),
-          amount: result.totalPrice,
-          category: selectedCategory,
-          bedType: selectedBedType,
-        }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setSuccess(t("priceCalculator.saveSuccess"));
-        setResult(null);
-        setCheckIn("");
-        setCheckOut("");
-      } else {
-        setError(data.error || t("priceCalculator.saveError"));
-      }
-    } catch (err: any) {
-      setError(err.message || t("priceCalculator.saveError"));
+      // Note: The revenue POST endpoint expects different fields
+      // For now, we'll skip saving from calculator as it requires a roomId
+      showToast.warning(
+        t("priceCalculator.saveNotSupported") ||
+          "Saving from calculator is not supported"
+      );
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      showToast.error(err.message || t("priceCalculator.saveError"));
     } finally {
       setSaving(false);
     }
@@ -229,22 +212,10 @@ export default function PriceCalculatorPage() {
               />
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-                {success}
-              </div>
-            )}
-
             <button
               onClick={handleCalculate}
               disabled={loading || availableBedTypes.length === 0}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full bg-blue-500 text-blue-800 px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {loading ? t("common.loading") : t("priceCalculator.calculate")}
             </button>
@@ -303,7 +274,7 @@ export default function PriceCalculatorPage() {
               <button
                 onClick={handleSaveTransaction}
                 disabled={saving}
-                className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400"
+                className="w-full bg-green-500 text-green-800 px-4 py-2 rounded-lg hover:bg-green-500 transition-colors disabled:bg-gray-300"
               >
                 {saving
                   ? t("common.loading")

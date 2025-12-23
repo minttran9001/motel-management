@@ -2,20 +2,16 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/navigation";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Manrope } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
-import Navigation from "@/components/Navigation";
+import NavigationWrapper from "@/components/NavigationWrapper";
 import { Toaster } from "@/components/ui/toaster";
 import "../globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
 export function generateStaticParams() {
@@ -43,16 +39,13 @@ export default async function LocaleLayout({
   return (
     <html lang={locale}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
+        className={`${manrope.variable} antialiased bg-blue-50`}
       >
         <SessionProvider>
           <NextIntlClientProvider locale={locale} messages={messages}>
-            <div className="flex min-h-screen">
-              <Navigation />
-              <main className="flex-1 transition-all duration-300 bg-gray-50" id="main-content">
-                {children}
-              </main>
-            </div>
+            <NavigationWrapper>
+              {children}
+            </NavigationWrapper>
             <Toaster />
           </NextIntlClientProvider>
         </SessionProvider>

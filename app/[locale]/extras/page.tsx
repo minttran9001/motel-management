@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmModal from "@/components/ConfirmModal";
+import Modal from "@/components/Modal";
+import PageContainer from "@/components/PageContainer";
+import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
 
 interface ExtrasOption {
@@ -30,6 +33,8 @@ export default function ExtrasPage() {
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [editingOption, setEditingOption] = useState<ExtrasOption | null>(null);
+  const [processingSubmit, setProcessingSubmit] = useState(false);
+  const [processingDelete, setProcessingDelete] = useState<string | null>(null);
 
   // Confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
@@ -56,14 +61,13 @@ export default function ExtrasPage() {
   const fetchAnalytics = useCallback(async () => {
     try {
       setAnalyticsLoading(true);
-      let url = "/api/extras-options/analytics";
-      if (filterStartDate && filterEndDate) {
-        url += `?startDate=${filterStartDate}&endDate=${filterEndDate}`;
-      }
-      const response = await fetch(url);
-      const result = await response.json();
-      if (result.success) {
-        setAnalytics(result.data);
+      const params =
+        filterStartDate && filterEndDate
+          ? { startDate: filterStartDate, endDate: filterEndDate }
+          : undefined;
+      const response = await apiClient.extrasOptions.analytics(params);
+      if (response.data.success) {
+        setAnalytics(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching extras analytics:", error);
@@ -80,10 +84,9 @@ export default function ExtrasPage() {
 
   const fetchOptions = async () => {
     try {
-      const response = await fetch("/api/extras-options");
-      const result = await response.json();
-      if (result.success) {
-        setOptions(result.data);
+      const response = await apiClient.extrasOptions.getAll();
+      if (response.data.success) {
+        setOptions(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching extras options:", error);
@@ -92,35 +95,31 @@ export default function ExtrasPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    setProcessingSubmit(true);
     try {
-      const url = editingOption
-        ? `/api/extras-options/${editingOption._id}`
-        : "/api/extras-options";
-      const method = editingOption ? "PUT" : "POST";
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          price: Number(formData.price),
-        }),
-      });
-      const result = await response.json();
-      if (result.success) {
+      const response = editingOption
+        ? await apiClient.extrasOptions.update(editingOption._id, {
+            name: formData.name,
+            price: Number(formData.price),
+          })
+        : await apiClient.extrasOptions.create({
+            name: formData.name,
+            price: Number(formData.price),
+          });
+      if (response.data.success) {
         showToast.success(
           editingOption ? t("extras.updateSuccess") : t("extras.createSuccess")
         );
         fetchOptions();
         setShowModal(false);
         resetForm();
-      } else {
-        showToast.error(result.error || t("extras.saveError"));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving extras option:", error);
-      showToast.error(t("extras.saveError"));
+      showToast.error(error.response?.data?.error || t("extras.saveError"));
+    } finally {
+      setProcessingSubmit(false);
     }
   };
 
@@ -130,19 +129,16 @@ export default function ExtrasPage() {
       message: t("extras.confirmDelete"),
       onConfirm: async () => {
         try {
-          const response = await fetch(`/api/extras-options/${id}`, {
-            method: "DELETE",
-          });
-          const result = await response.json();
-          if (result.success) {
+          const response = await apiClient.extrasOptions.delete(id);
+          if (response.data.success) {
             showToast.success(t("extras.deleteSuccess"));
             fetchOptions();
-          } else {
-            showToast.error(result.error || t("extras.deleteError"));
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error deleting extras option:", error);
-          showToast.error(t("extras.deleteError"));
+          showToast.error(
+            error.response?.data?.error || t("extras.deleteError")
+          );
         } finally {
           setShowConfirm(false);
         }
@@ -183,7 +179,7 @@ export default function ExtrasPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContainer>
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -196,7 +192,7 @@ export default function ExtrasPage() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowAnalytics(!showAnalytics)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
             >
               {showAnalytics
                 ? t("extras.hideAnalytics")
@@ -207,7 +203,7 @@ export default function ExtrasPage() {
                 resetForm();
                 setShowModal(true);
               }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
             >
               {t("extras.addOption")}
             </button>
@@ -392,15 +388,22 @@ export default function ExtrasPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleEdit(option)}
-                        className="text-blue-600 hover:text-blue-900"
+                        disabled={processingDelete !== null}
+                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {t("common.edit")}
                       </button>
                       <button
                         onClick={() => handleDelete(option._id)}
-                        className="text-red-600 hover:text-red-900"
+                        disabled={
+                          processingDelete === option._id ||
+                          processingDelete !== null
+                        }
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {t("common.delete")}
+                        {processingDelete === option._id
+                          ? t("common.loading")
+                          : t("common.delete")}
                       </button>
                     </td>
                   </tr>
@@ -410,66 +413,52 @@ export default function ExtrasPage() {
           </table>
         </div>
 
-        {showModal && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className="relative mx-auto p-5 border w-full max-w-md shadow-lg rounded-xl bg-white max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                {editingOption ? t("extras.editOption") : t("extras.addOption")}
-              </h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("extras.name")}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={t("extras.namePlaceholder")}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t("extras.price")} (VND)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) =>
-                      setFormData({ ...formData, price: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      resetForm();
-                    }}
-                    className="flex-1 px-4 py-2 text-sm font-bold bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
-                  >
-                    {t("common.cancel")}
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-                  >
-                    {editingOption ? t("common.update") : t("common.add")}
-                  </button>
-                </div>
-              </form>
+        <Modal
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false);
+            resetForm();
+          }}
+          title={editingOption ? t("extras.editOption") : t("extras.addOption")}
+          maxWidth="md"
+          onSave={handleSubmit}
+          saveText={editingOption ? t("common.update") : t("common.add")}
+          isLoading={processingSubmit}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("extras.name")}
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={t("extras.namePlaceholder")}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {t("extras.price")} (VND)
+              </label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={formData.price}
+                onChange={(e) =>
+                  setFormData({ ...formData, price: e.target.value })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="0"
+              />
             </div>
           </div>
-        )}
+        </Modal>
 
         <ConfirmModal
           isOpen={showConfirm}
@@ -479,7 +468,7 @@ export default function ExtrasPage() {
           message={confirmConfig.message}
           type={confirmConfig.type}
         />
-      </div>
+      </PageContainer>
     </div>
   );
 }

@@ -273,7 +273,7 @@ export default function Navigation() {
       <div className="fixed top-4 right-4 z-[100]">
         <Link
           href="/login"
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+          className="px-4 py-2 text-sm font-medium text-blue-800 bg-blue-500 rounded-lg hover:bg-blue-500 transition-colors shadow-lg"
         >
           {t("login")}
         </Link>
@@ -286,7 +286,7 @@ export default function Navigation() {
       {/* Mobile Toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-[110] p-2 rounded-lg bg-white shadow-md text-gray-600 hover:text-blue-600 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-[110] p-2 rounded-lg bg-white shadow-md text-gray-500 hover:text-blue-400 transition-colors"
       >
         {isOpen ? (
           <svg
@@ -322,14 +322,14 @@ export default function Navigation() {
       {/* Sidebar Overlay */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-gray-600 bg-opacity-50 z-[100] transition-opacity"
+          className="lg:hidden fixed inset-0 bg-gray-400 bg-opacity-40 backdrop-blur-sm z-[100] transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Sidebar Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-white shadow-2xl z-[50] ${
+        className={`fixed top-0 left-0 h-full bg-white shadow-2xl z-[105] ${
           isCollapsed ? "w-20" : "w-80"
         } transform transition-all duration-300 ease-in-out flex flex-col ${
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -340,7 +340,7 @@ export default function Navigation() {
             isCollapsed ? "justify-center" : ""
           }`}
         >
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
+          <div className="w-8 h-8 bg-blue-400 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
             M
           </div>
           {!isCollapsed && (
@@ -351,7 +351,7 @@ export default function Navigation() {
           {/* Desktop collapse button */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:block ml-auto p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            className="hidden lg:block ml-auto p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-gray-600 transition-colors"
             title={isCollapsed ? t("expandSidebar") : t("collapseSidebar")}
           >
             <svg
@@ -388,16 +388,16 @@ export default function Navigation() {
                 isCollapsed ? "justify-center" : ""
               } ${
                 pathname === item.href
-                  ? "bg-blue-50 text-blue-600 shadow-sm"
-                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-blue-100 text-blue-600 shadow-sm"
+                  : "text-gray-500 hover:bg-blue-50 hover:text-gray-700"
               }`}
               title={isCollapsed ? item.label : undefined}
             >
               <span
                 className={`transition-colors shrink-0 ${
                   pathname === item.href
-                    ? "text-blue-600"
-                    : "text-gray-400 group-hover:text-gray-600"
+                    ? "text-blue-500"
+                    : "text-gray-400 group-hover:text-blue-400"
                 }`}
               >
                 {item.icon}
@@ -428,11 +428,11 @@ export default function Navigation() {
           )}
 
           <div
-            className={`bg-gray-50 rounded-2xl p-4 flex items-center gap-3 ${
+            className={`bg-blue-50 rounded-2xl p-4 flex items-center gap-3 ${
               isCollapsed ? "justify-center" : ""
             }`}
           >
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm border-2 border-white shadow-sm shrink-0">
+            <div className="w-10 h-10 rounded-full bg-blue-300 flex items-center justify-center text-blue-800 font-bold text-sm border-2 border-white shadow-sm shrink-0">
               {session.user?.name?.[0] || "U"}
             </div>
             {!isCollapsed && (
@@ -442,7 +442,7 @@ export default function Navigation() {
                 </p>
                 <button
                   onClick={handleLogout}
-                  className="text-[11px] font-medium text-red-500 hover:text-red-700 transition-colors"
+                  className="text-[11px] font-medium text-red-400 hover:text-red-500 transition-colors"
                 >
                   {t("logout")}
                 </button>
