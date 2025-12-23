@@ -2,9 +2,10 @@ import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI || "";
 
-if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable inside .env.local"
+// Only throw error at runtime, not during build
+if (!MONGODB_URI && typeof window === "undefined" && process.env.NODE_ENV !== "production") {
+  console.warn(
+    "MONGODB_URI environment variable is not defined. Database connections will fail."
   );
 }
 
