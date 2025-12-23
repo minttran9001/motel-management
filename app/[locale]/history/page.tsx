@@ -34,10 +34,11 @@ export default function HistoryPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/transactions?date=${selectedDate}`);
-      const result = await response.json();
-      if (result.success) {
-        setTransactions(result.data);
+      const response = await apiClient.transactions.getAll({
+        date: selectedDate,
+      });
+      if (response.data.success) {
+        setTransactions(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching history:", error);

@@ -63,6 +63,7 @@ export interface Transaction {
   paidAmount?: number;
   debtRemaining?: number;
   isDebt?: boolean;
+  createdAt: string;
 }
 
 export interface Expense {

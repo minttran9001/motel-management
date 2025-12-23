@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 
@@ -37,11 +38,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState("day");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, [period]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [roomsRes, revenueRes] = await Promise.all([
@@ -58,14 +55,18 @@ export default function DashboardPage() {
       }
 
       if (revenueRes.data.success) {
-        setRevenue(revenueRes.data.data);
+        setRevenue(revenueRes.data.data as RevenueData);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [period]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN").format(price);
@@ -231,17 +232,18 @@ export default function DashboardPage() {
         {/* Revenue Filters */}
         <div className="mb-8 flex space-x-2">
           {["day", "week", "month", "year"].map((p) => (
-            <button
+            <Button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              disabled={loading}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors h-auto ${
                 period === p
                   ? "bg-blue-400 text-white"
                   : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
               }`}
             >
               {t(`dashboard.${p}`)}
-            </button>
+            </Button>
           ))}
         </div>
 

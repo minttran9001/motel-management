@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "@/i18n/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import { Button } from "@/components/ui/button";
 import { showToast } from "@/lib/toast";
 
 export default function LoginPage() {
@@ -16,10 +17,12 @@ export default function LoginPage() {
 
   // Check for session expiration message
   useEffect(() => {
-    const sessionExpired = sessionStorage.getItem('sessionExpired');
-    if (sessionExpired === 'true') {
-      showToast.warning(t("sessionExpired") || "Your session has expired. Please login again.");
-      sessionStorage.removeItem('sessionExpired');
+    const sessionExpired = sessionStorage.getItem("sessionExpired");
+    if (sessionExpired === "true") {
+      showToast.warning(
+        t("sessionExpired") || "Your session has expired. Please login again."
+      );
+      sessionStorage.removeItem("sessionExpired");
     }
   }, [t]);
 
@@ -91,17 +94,16 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-blue-800 bg-blue-500 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-500"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-400 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 disabled:bg-blue-300 h-auto"
             >
               {loading ? t("loading") : t("signIn")}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
     </div>
   );
 }
-

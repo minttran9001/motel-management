@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmModal from "@/components/ConfirmModal";
 import Modal from "@/components/Modal";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
@@ -190,23 +191,23 @@ export default function ExtrasPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
+            <Button
               onClick={() => setShowAnalytics(!showAnalytics)}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
+              className="bg-green-400 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors h-auto"
             >
               {showAnalytics
                 ? t("extras.hideAnalytics")
                 : t("extras.showAnalytics")}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 resetForm();
                 setShowModal(true);
               }}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
+              className="bg-blue-400 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors h-auto"
             >
               {t("extras.addOption")}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -233,15 +234,16 @@ export default function ExtrasPage() {
                   placeholder={t("extras.filterEndDate")}
                 />
                 {(filterStartDate || filterEndDate) && (
-                  <button
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setFilterStartDate("");
                       setFilterEndDate("");
                     }}
-                    className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 h-auto"
                   >
                     {t("extras.clearFilters")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -386,25 +388,29 @@ export default function ExtrasPage() {
                       {formatPrice(option.price)} VND
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEdit(option)}
                         disabled={processingDelete !== null}
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-blue-700 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto"
                       >
                         {t("common.edit")}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(option._id)}
                         disabled={
                           processingDelete === option._id ||
                           processingDelete !== null
                         }
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-700 hover:text-red-800 hover:bg-red-50 p-0 h-auto"
                       >
                         {processingDelete === option._id
                           ? t("common.loading")
                           : t("common.delete")}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "@/components/Modal";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
@@ -180,14 +181,15 @@ export default function DebtsPage() {
               {formatCurrency(totalDebt)}
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={fetchDebts}
-            className="px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-50"
+            className="px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white hover:bg-gray-50 h-auto"
             disabled={loading}
           >
             {loading ? t("common.loading") : t("common.refresh")}
-          </button>
+          </Button>
         </div>
 
         <div className="bg-white shadow-sm rounded-xl border border-gray-100 overflow-hidden">
@@ -247,17 +249,18 @@ export default function DebtsPage() {
                   />
                 </div>
                 <div className="flex items-end">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => {
                       setFilterStartDate("");
                       setFilterEndDate("");
                     }}
-                    className="w-full px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    className="w-full px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 h-auto"
                     disabled={!filterStartDate && !filterEndDate}
                   >
                     {t("debts.clearFilters")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -335,24 +338,26 @@ export default function DebtsPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
                         <div className="flex items-center justify-end gap-2">
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
                             onClick={() => handleUpdateClick(debt)}
                             disabled={settlingId !== null || updating}
-                            className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-semibold hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-400 text-white text-xs font-semibold hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed h-auto"
                           >
                             {t("debts.updatePaidAmount")}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            size="sm"
                             onClick={() => handleSettle(debt._id)}
                             disabled={settlingId === debt._id}
-                            className="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:bg-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg bg-green-400 text-white text-xs font-semibold hover:bg-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed h-auto"
                           >
                             {settlingId === debt._id
                               ? t("common.loading")
                               : t("debts.settleButton")}
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -377,26 +382,27 @@ export default function DebtsPage() {
           maxWidth="md"
           footer={
             <div className="flex gap-3">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   setShowUpdateModal(false);
                   setSelectedDebt(null);
                   setPaidAmount("");
                 }}
                 disabled={updating}
-                className="flex-1 px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="flex-1 px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 h-auto"
               >
                 {t("common.cancel")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleUpdatePaidAmount}
                 disabled={updating}
-                className="flex-1 px-4 py-2 text-sm font-semibold bg-blue-500 text-white rounded-lg hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 text-sm font-semibold bg-blue-400 text-white rounded-lg hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed h-auto"
               >
                 {updating ? t("common.loading") : t("common.save")}
-              </button>
+              </Button>
             </div>
           }
         >

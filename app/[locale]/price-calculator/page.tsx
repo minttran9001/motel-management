@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
 
@@ -46,10 +47,10 @@ export default function PriceCalculatorPage() {
     const bedTypes = hourlyPricingOptions
       .filter((p) => p.category === selectedCategory)
       .map((p) => p.bedType);
-    if (bedTypes.length > 0 && !bedTypes.includes(selectedBedType)) {
+    if (bedTypes.length > 0 && !bedTypes.includes(selectedBedType as number)) {
       setSelectedBedType(bedTypes[0]);
     }
-  }, [selectedCategory, hourlyPricingOptions]);
+  }, [selectedCategory, hourlyPricingOptions, selectedBedType]);
 
   const fetchHourlyPricing = async () => {
     try {
@@ -212,13 +213,13 @@ export default function PriceCalculatorPage() {
               />
             </div>
 
-            <button
+            <Button
               onClick={handleCalculate}
               disabled={loading || availableBedTypes.length === 0}
-              className="w-full bg-blue-500 text-blue-800 px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="w-full bg-blue-400 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed h-auto"
             >
               {loading ? t("common.loading") : t("priceCalculator.calculate")}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -271,15 +272,15 @@ export default function PriceCalculatorPage() {
                 </div>
               </div>
 
-              <button
+              <Button
                 onClick={handleSaveTransaction}
                 disabled={saving}
-                className="w-full bg-green-500 text-green-800 px-4 py-2 rounded-lg hover:bg-green-500 transition-colors disabled:bg-gray-300"
+                className="w-full bg-green-400 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors disabled:bg-gray-300 h-auto"
               >
                 {saving
                   ? t("common.loading")
                   : "Record Check-out (Update Revenue)"}
-              </button>
+              </Button>
             </div>
           </div>
         )}

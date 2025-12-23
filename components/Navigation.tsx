@@ -4,6 +4,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { usePathname, useRouter, Link } from "@/i18n/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Navigation() {
   const t = useTranslations("nav");
@@ -16,8 +17,10 @@ export default function Navigation() {
 
   // Close sidebar when route changes on mobile
   useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+    if (isOpen) {
+      setIsOpen(false);
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update CSS variable for main content margin
   useEffect(() => {
@@ -284,7 +287,9 @@ export default function Navigation() {
   return (
     <>
       {/* Mobile Toggle */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setIsOpen(!isOpen)}
         className="lg:hidden fixed top-4 left-4 z-[110] p-2 rounded-lg bg-white shadow-md text-gray-500 hover:text-blue-400 transition-colors"
       >
@@ -317,7 +322,7 @@ export default function Navigation() {
             />
           </svg>
         )}
-      </button>
+      </Button>
 
       {/* Sidebar Overlay */}
       {isOpen && (
@@ -349,9 +354,11 @@ export default function Navigation() {
             </h1>
           )}
           {/* Desktop collapse button */}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:block ml-auto p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-gray-600 transition-colors"
+            className="hidden lg:flex ml-auto p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-gray-600 transition-colors h-auto w-auto"
             title={isCollapsed ? t("expandSidebar") : t("collapseSidebar")}
           >
             <svg
@@ -376,7 +383,7 @@ export default function Navigation() {
                 />
               )}
             </svg>
-          </button>
+          </Button>
         </div>
 
         <nav className="flex-grow overflow-y-auto py-6 px-4 space-y-1">
@@ -419,10 +426,10 @@ export default function Navigation() {
               </span>
               <Link
                 href={pathname}
-                locale={locale === "en" ? "vi" : "en"}
+                locale={locale === "vi" ? "en" : "vi"}
                 className="px-2 py-1 text-[10px] font-black uppercase rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               >
-                {locale === "en" ? "🇻🇳 VI" : "🇬🇧 EN"}
+                {locale === "vi" ? "🇻🇳 VI" : "🇬🇧 EN"}
               </Link>
             </div>
           )}
@@ -440,12 +447,13 @@ export default function Navigation() {
                 <p className="text-sm font-bold text-gray-900 truncate">
                   {session.user?.name}
                 </p>
-                <button
+                <Button
+                  variant="link"
                   onClick={handleLogout}
-                  className="text-[11px] font-medium text-red-400 hover:text-red-500 transition-colors"
+                  className="text-[11px] font-medium text-red-400 hover:text-red-500 transition-colors p-0 h-auto"
                 >
                   {t("logout")}
-                </button>
+                </Button>
               </div>
             )}
           </div>

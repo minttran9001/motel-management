@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Modal from "@/components/Modal";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
@@ -240,9 +241,10 @@ export default function RoomStatusPage() {
         setShowCheckInModal(false);
         resetCheckInFields();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error in check-in:", error);
-      showToast.error(error.response?.data?.error || "Error checking in");
+      showToast.error(err.response?.data?.error || "Error checking in");
     } finally {
       setProcessingCheckIn(false);
     }
@@ -283,10 +285,11 @@ export default function RoomStatusPage() {
         setFinalAmount(totalAmount - deposit);
         setShowCheckOutModal(true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error fetching billing preview:", error);
       showToast.error(
-        error.response?.data?.error || "Error fetching billing preview"
+        err.response?.data?.error || "Error fetching billing preview"
       );
     }
   };
@@ -366,9 +369,10 @@ export default function RoomStatusPage() {
         });
         showToast.success(successMsg);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error in check-out:", error);
-      showToast.error(error.response?.data?.error || "Error checking out");
+      showToast.error(err.response?.data?.error || "Error checking out");
     } finally {
       setProcessingCheckOut(false);
     }
@@ -428,9 +432,10 @@ export default function RoomStatusPage() {
         resetCheckInFields();
         showToast.success(t("room.updateSuccess"));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error updating room:", error);
-      showToast.error(error.response?.data?.error || t("common.error"));
+      showToast.error(err.response?.data?.error || t("common.error"));
     } finally {
       setProcessingUpdate(false);
     }
@@ -455,9 +460,10 @@ export default function RoomStatusPage() {
         setCancellationReason("");
         showToast.success(t("room.cancelSuccess"));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error cancelling room:", error);
-      showToast.error(error.response?.data?.error || t("common.error"));
+      showToast.error(err.response?.data?.error || t("common.error"));
     } finally {
       setProcessingCancel(false);
     }
@@ -515,28 +521,32 @@ export default function RoomStatusPage() {
           <div className="flex flex-wrap items-center gap-3">
             {/* View mode toggle */}
             <div className="flex items-center bg-gray-100 rounded-lg p-1 text-xs font-medium">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setViewMode("grid")}
-                className={`px-3 py-1.5 rounded-md transition-colors ${
+                className={`px-3 py-1.5 rounded-md transition-colors h-auto ${
                   viewMode === "grid"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-white text-gray-900 shadow-sm hover:bg-white"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-transparent"
                 }`}
               >
                 {t("room.cardView")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setViewMode("table")}
-                className={`ml-1 px-3 py-1.5 rounded-md transition-colors ${
+                className={`ml-1 px-3 py-1.5 rounded-md transition-colors h-auto ${
                   viewMode === "table"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-900"
+                    ? "bg-white text-gray-900 shadow-sm hover:bg-white"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-transparent"
                 }`}
               >
                 {t("room.tableView")}
-              </button>
+              </Button>
             </div>
 
             <div className="relative">
@@ -738,37 +748,37 @@ export default function RoomStatusPage() {
 
                   <div className="mt-6 pt-6 border-t border-gray-100">
                     {room.isAvailable ? (
-                      <button
+                      <Button
                         onClick={() => handleCheckIn(room)}
-                        className={`w-full text-white text-base font-black py-4 rounded-2xl transition-all shadow-lg shadow-gray-100 ${
+                        className={`w-full text-white text-base font-black py-4 h-auto rounded-2xl transition-all shadow-lg shadow-gray-100 ${
                           isVip
-                            ? "bg-amber-400 hover:bg-amber-400"
+                            ? "bg-amber-400 hover:bg-amber-500"
                             : "bg-green-400 hover:bg-green-500"
                         }`}
                       >
                         {t("room.checkIn")}
-                      </button>
+                      </Button>
                     ) : (
                       <div className="space-y-2">
-                        <button
+                        <Button
                           onClick={() => handleCheckOutClick(room)}
-                          className="w-full bg-red-400 text-white text-base font-black py-4 rounded-2xl hover:bg-red-500 transition-all shadow-lg shadow-red-100"
+                          className="w-full bg-red-400 text-white text-base font-black py-4 h-auto rounded-2xl hover:bg-red-500 transition-all shadow-lg shadow-red-100"
                         >
                           {t("room.checkOut")}
-                        </button>
+                        </Button>
                         <div className="grid grid-cols-2 gap-2">
-                          <button
+                          <Button
                             onClick={() => handleUpdateClick(room)}
-                            className="bg-blue-400 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-blue-500 transition-all"
+                            className="bg-blue-400 text-white text-sm font-bold py-2.5 h-auto rounded-xl hover:bg-blue-500 transition-all"
                           >
                             {t("room.update")}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             onClick={() => handleCancelClick(room)}
-                            className="bg-orange-400 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-orange-500 transition-all"
+                            className="bg-orange-400 text-white text-sm font-bold py-2.5 h-auto rounded-xl hover:bg-orange-500 transition-all"
                           >
                             {t("room.cancel")}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )}
@@ -923,32 +933,36 @@ export default function RoomStatusPage() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-right space-x-2">
                           {room.isAvailable ? (
-                            <button
+                            <Button
                               onClick={() => handleCheckIn(room)}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-400 text-white hover:bg-green-500"
+                              size="sm"
+                              className="px-3 py-1.5 h-auto text-xs font-semibold rounded-lg bg-green-400 text-white hover:bg-green-500"
                             >
                               {t("room.checkIn")}
-                            </button>
+                            </Button>
                           ) : (
                             <>
-                              <button
+                              <Button
                                 onClick={() => handleCheckOutClick(room)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-400 text-white hover:bg-red-500"
+                                size="sm"
+                                className="px-3 py-1.5 h-auto text-xs font-semibold rounded-lg bg-red-400 text-white hover:bg-red-500"
                               >
                                 {t("room.checkOut")}
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 onClick={() => handleUpdateClick(room)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-400 text-white hover:bg-blue-500"
+                                size="sm"
+                                className="px-3 py-1.5 h-auto text-xs font-semibold rounded-lg bg-blue-400 text-white hover:bg-blue-500"
                               >
                                 {t("room.update")}
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 onClick={() => handleCancelClick(room)}
-                                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-400 text-white hover:bg-orange-500"
+                                size="sm"
+                                className="px-3 py-1.5 h-auto text-xs font-semibold rounded-lg bg-orange-400 text-white hover:bg-orange-500"
                               >
                                 {t("room.cancel")}
-                              </button>
+                              </Button>
                             </>
                           )}
                         </td>
@@ -975,20 +989,21 @@ export default function RoomStatusPage() {
             maxWidth="2xl"
             footer={
               <div className="flex justify-end space-x-3">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={resetCheckInFields}
                   className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
                   {t("common.cancel")}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={confirmCheckIn}
                   disabled={!customerName.trim() || processingCheckIn}
                   className="px-4 py-2 text-sm bg-green-400 text-white rounded-lg hover:bg-green-500 disabled:bg-gray-200 disabled:cursor-not-allowed"
                 >
                   {processingCheckIn ? t("common.loading") : t("room.checkIn")}
-                </button>
+                </Button>
               </div>
             }
           >
@@ -1130,8 +1145,9 @@ export default function RoomStatusPage() {
             maxWidth="2xl"
             footer={
               <div className="flex gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowCheckOutModal(false);
                     setBillingPreview(null);
@@ -1141,8 +1157,8 @@ export default function RoomStatusPage() {
                   className="flex-1 px-4 py-3 text-sm font-semibold border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   {t("common.cancel")}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={confirmCheckOut}
                   disabled={processingCheckOut}
                   className="flex-2 px-4 py-3 text-sm font-bold bg-red-400 text-white rounded-xl hover:bg-red-500 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg shadow-red-100"
@@ -1150,7 +1166,7 @@ export default function RoomStatusPage() {
                   {processingCheckOut
                     ? t("common.loading")
                     : t("room.checkOut")}
-                </button>
+                </Button>
               </div>
             }
           >
@@ -1498,7 +1514,7 @@ export default function RoomStatusPage() {
             maxWidth="2xl"
             footer={
               <div className="flex gap-3">
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setShowUpdateModal(false);
@@ -1507,14 +1523,14 @@ export default function RoomStatusPage() {
                   className="flex-1 px-4 py-3 text-sm font-bold bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
                 >
                   {t("common.cancel")}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={confirmUpdate}
                   disabled={processingUpdate}
                   className="flex-1 px-4 py-3 text-sm font-bold bg-blue-400 text-white rounded-xl hover:bg-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {processingUpdate ? t("common.loading") : t("room.update")}
-                </button>
+                </Button>
               </div>
             }
           >
@@ -1673,11 +1689,12 @@ export default function RoomStatusPage() {
                     {showExtrasDropdown && filteredExtrasOptions.length > 0 && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {filteredExtrasOptions.map((option) => (
-                          <button
+                          <Button
                             key={option._id}
                             type="button"
+                            variant="ghost"
                             onClick={() => selectExtrasOption(option)}
-                            className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none text-sm"
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none text-sm h-auto block"
                           >
                             <div className="font-medium text-gray-900">
                               {option.name}
@@ -1688,7 +1705,7 @@ export default function RoomStatusPage() {
                               )}{" "}
                               VND
                             </div>
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     )}
@@ -1725,13 +1742,13 @@ export default function RoomStatusPage() {
                     }}
                     className="col-span-3 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={addExtra}
-                    className="col-span-2 px-3 py-2 bg-blue-400 text-white text-sm font-bold rounded-lg hover:bg-blue-500 transition-all"
+                    className="col-span-2 px-3 py-2 bg-blue-400 text-white text-sm font-bold rounded-lg hover:bg-blue-500 transition-all h-auto"
                   >
                     {t("common.add")}
-                  </button>
+                  </Button>
                 </div>
                 {extras.length > 0 && (
                   <div className="mt-2 space-y-1">
@@ -1750,13 +1767,14 @@ export default function RoomStatusPage() {
                             )}{" "}
                             VND
                           </span>
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
                             onClick={() => removeExtra(index)}
-                            className="text-red-500 hover:text-red-700 text-lg font-bold w-6 h-6 flex items-center justify-center"
+                            className="text-red-500 hover:text-red-700 text-lg font-bold w-6 h-6 flex items-center justify-center p-0 hover:bg-transparent"
                           >
                             ×
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ))}
@@ -1781,25 +1799,26 @@ export default function RoomStatusPage() {
             maxWidth="xl"
             footer={
               <div className="flex gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowCancelModal(false);
                     setCancellationReason("");
                   }}
-                  className="flex-1 px-4 py-3 text-sm font-bold bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300"
+                  className="flex-1 px-4 py-3 text-sm font-bold bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 border-none h-auto"
                 >
                   {t("common.cancel")}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={confirmCancel}
                   disabled={processingCancel}
-                  className="flex-1 px-4 py-3 text-sm font-bold bg-orange-400 text-white rounded-xl hover:bg-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-3 text-sm font-bold bg-orange-400 text-white rounded-xl hover:bg-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed h-auto"
                 >
                   {processingCancel
                     ? t("common.loading")
                     : t("room.confirmCancel")}
-                </button>
+                </Button>
               </div>
             }
           >

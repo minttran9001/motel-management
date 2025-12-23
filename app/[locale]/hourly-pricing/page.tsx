@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmModal from "@/components/ConfirmModal";
 import Modal from "@/components/Modal";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
@@ -81,10 +82,11 @@ export default function HourlyPricingPage() {
         setShowModal(false);
         resetForm();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error saving hourly pricing:", error);
       showToast.error(
-        error.response?.data?.error || t("hourlyPricing.saveError")
+        err.response?.data?.error || t("hourlyPricing.saveError")
       );
     } finally {
       setProcessingSubmit(false);
@@ -102,10 +104,11 @@ export default function HourlyPricingPage() {
           if (response.data.success) {
             fetchPricing();
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { error?: string } } };
           console.error("Error deleting hourly pricing:", error);
           showToast.error(
-            error.response?.data?.error || "Error deleting hourly pricing"
+            err.response?.data?.error || "Error deleting hourly pricing"
           );
         } finally {
           setProcessingDelete(null);
@@ -168,15 +171,15 @@ export default function HourlyPricingPage() {
               {t("hourlyPricing.description")}
             </p>
           </div>
-          <button
+          <Button
             onClick={() => {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
+            className="bg-blue-400 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors h-auto"
           >
             {t("hourlyPricing.addPricing")}
-          </button>
+          </Button>
         </div>
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -244,25 +247,29 @@ export default function HourlyPricingPage() {
                       {p.checkoutTime}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEdit(p)}
                         disabled={processingDelete !== null}
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-blue-700 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto"
                       >
                         {t("common.edit")}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(p._id)}
                         disabled={
                           processingDelete === p._id ||
                           processingDelete !== null
                         }
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-700 hover:text-red-800 hover:bg-red-50 p-0 h-auto"
                       >
                         {processingDelete === p._id
                           ? t("common.loading")
                           : t("common.delete")}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))

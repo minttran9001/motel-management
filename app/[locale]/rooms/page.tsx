@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmModal from "@/components/ConfirmModal";
 import Modal from "@/components/Modal";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 import { showToast } from "@/lib/toast";
@@ -133,9 +134,10 @@ export default function RoomsPage() {
         setShowCheckInModal(false);
         setCustomerName("");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error in bulk check-in:", error);
-      showToast.error(error.response?.data?.error || "Error in bulk check-in");
+      showToast.error(err.response?.data?.error || "Error in bulk check-in");
     } finally {
       setProcessingBulkCheckIn(false);
     }
@@ -158,10 +160,11 @@ export default function RoomsPage() {
             // Note: bulk check-out response may not include totalPrice
             showToast.success(t("common.checkOutSuccess"));
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { error?: string } } };
           console.error("Error in bulk check-out:", error);
           showToast.error(
-            error.response?.data?.error || "Error in bulk check-out"
+            err.response?.data?.error || "Error in bulk check-out"
           );
         } finally {
           setShowConfirm(false);
@@ -183,9 +186,10 @@ export default function RoomsPage() {
         setShowModal(false);
         resetForm();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { error?: string } } };
       console.error("Error saving room:", error);
-      showToast.error(error.response?.data?.error || "Error saving room");
+      showToast.error(err.response?.data?.error || "Error saving room");
     } finally {
       setProcessingSubmit(false);
     }
@@ -202,9 +206,10 @@ export default function RoomsPage() {
           if (response.data.success) {
             fetchRooms();
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { response?: { data?: { error?: string } } };
           console.error("Error deleting room:", error);
-          showToast.error(error.response?.data?.error || "Error deleting room");
+          showToast.error(err.response?.data?.error || "Error deleting room");
         } finally {
           setProcessingDelete(null);
           setShowConfirm(false);
@@ -256,37 +261,37 @@ export default function RoomsPage() {
           <div className="space-x-2">
             {selectedRoomIds.length > 0 && (
               <>
-                <button
+                <Button
                   onClick={handleBulkCheckIn}
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
+                  className="bg-green-400 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors h-auto"
                 >
                   {t("room.bulkCheckIn")}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleBulkCheckOut}
-                  className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-500 transition-colors"
+                  className="bg-orange-400 text-white px-4 py-2 rounded-lg hover:bg-orange-500 transition-colors h-auto"
                 >
                   {t("room.bulkCheckOut")}
-                </button>
+                </Button>
               </>
             )}
-            <button
+            <Button
               onClick={() => setShowAnalytics(!showAnalytics)}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
+              className="bg-green-400 text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors h-auto"
             >
               {showAnalytics
                 ? t("room.hideAnalytics")
                 : t("room.showAnalytics")}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => {
                 resetForm();
                 setShowModal(true);
               }}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
+              className="bg-blue-400 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors h-auto"
             >
               {t("room.addRoom")}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -313,15 +318,16 @@ export default function RoomsPage() {
                   placeholder={t("room.filterEndDate")}
                 />
                 {(filterStartDate || filterEndDate) && (
-                  <button
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setFilterStartDate("");
                       setFilterEndDate("");
                     }}
-                    className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 h-auto"
                   >
                     {t("room.clearFilters")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -545,25 +551,29 @@ export default function RoomsPage() {
                       {room.customerName || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEdit(room)}
                         disabled={processingDelete !== null}
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-blue-700 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto"
                       >
                         {t("common.edit")}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(room._id)}
                         disabled={
                           processingDelete === room._id ||
                           processingDelete !== null
                         }
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-700 hover:text-red-800 hover:bg-red-50 p-0 h-auto"
                       >
                         {processingDelete === room._id
                           ? t("common.loading")
                           : t("common.delete")}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))
@@ -680,22 +690,23 @@ export default function RoomsPage() {
           maxWidth="sm"
           footer={
             <div className="flex justify-end space-x-3">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setShowCheckInModal(false)}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 h-auto"
               >
                 {t("common.cancel")}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={confirmBulkCheckIn}
                 disabled={processingBulkCheckIn || !customerName.trim()}
-                className="px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-green-400 text-white rounded-lg hover:bg-green-500 disabled:bg-gray-300 disabled:cursor-not-allowed h-auto"
               >
                 {processingBulkCheckIn
                   ? t("common.loading")
                   : t("room.checkIn")}
-              </button>
+              </Button>
             </div>
           }
         >

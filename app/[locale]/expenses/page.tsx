@@ -166,15 +166,15 @@ export default function ExpensesPage() {
           <h1 className="text-3xl font-bold text-gray-900">
             {t("expense.title")}
           </h1>
-          <button
+          <Button
             onClick={() => {
               resetForm();
               setShowModal(true);
             }}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors"
+            className="bg-blue-400 text-white px-4 py-2 rounded-lg hover:bg-blue-500 transition-colors h-auto"
           >
             {t("expense.addExpense")}
-          </button>
+          </Button>
         </div>
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -224,25 +224,29 @@ export default function ExpensesPage() {
                       -{formatPrice(e.amount)} VND
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEdit(e)}
                         disabled={processingDelete !== null}
-                        className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-blue-700 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto"
                       >
                         {t("common.edit")}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(e._id)}
                         disabled={
                           processingDelete === e._id ||
                           processingDelete !== null
                         }
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-700 hover:text-red-800 hover:bg-red-50 p-0 h-auto"
                       >
                         {processingDelete === e._id
                           ? t("common.loading")
                           : t("common.delete")}
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))

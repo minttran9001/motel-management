@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/PageContainer";
 import apiClient from "@/lib/api-client";
 
@@ -314,26 +315,28 @@ export default function RevenueSummaryPage() {
               {t("revenueSummary.viewMode")}:
             </label>
             <div className="flex gap-2">
-              <button
+              <Button
                 onClick={() => setViewMode("month")}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === "month"
-                    ? "bg-blue-400 text-white"
+                    ? "bg-blue-400 text-white hover:bg-blue-500"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
+                disabled={loading}
               >
                 {t("revenueSummary.byMonth")}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setViewMode("year")}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   viewMode === "year"
-                    ? "bg-blue-400 text-white"
+                    ? "bg-blue-400 text-white hover:bg-blue-500"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
+                disabled={loading}
               >
                 {t("revenueSummary.byYear")}
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -575,14 +578,15 @@ export default function RevenueSummaryPage() {
                   </option>
                 ))}
               </select>
-              <button
+              <Button
                 onClick={() => setShowMonthlyAnalytics(!showMonthlyAnalytics)}
-                className="px-4 py-2 text-sm font-semibold bg-green-400 text-white rounded-lg hover:bg-green-400 transition-colors"
+                className="px-4 py-2 text-sm font-semibold bg-green-400 text-white rounded-lg hover:bg-green-500 transition-colors"
+                disabled={monthlyAnalyticsLoading}
               >
                 {showMonthlyAnalytics
                   ? t("revenueSummary.hideMonthlyAnalytics")
                   : t("revenueSummary.showMonthlyAnalytics")}
-              </button>
+              </Button>
             </div>
           </div>
           {showMonthlyAnalytics && (
@@ -783,12 +787,12 @@ export default function RevenueSummaryPage() {
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                     {(searchQuery || filterStartDate || filterEndDate) && (
-                      <button
+                      <Button
                         onClick={handleClearFilters}
                         className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                       >
                         {t("revenueSummary.clearFilters")}
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {filteredTransactions.length !== transactions.length && (
