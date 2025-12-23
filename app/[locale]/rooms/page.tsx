@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import ConfirmModal from '@/components/ConfirmModal';
+import { showToast } from '@/lib/toast';
 
 interface Room {
   _id: string;
@@ -15,13 +16,28 @@ interface Room {
   checkInTime?: string;
 }
 
+interface RoomAnalytics {
+  roomNumber: string;
+  category: "vip" | "regular";
+  bedType: number;
+  transactionCount: number;
+  totalRevenue: number;
+  totalExtrasRevenue: number;
+  averageStayDuration: number;
+}
+
 export default function RoomsPage() {
   const t = useTranslations();
   const locale = useLocale();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [analytics, setAnalytics] = useState<RoomAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [customerName, setCustomerName] = useState('');
@@ -50,6 +66,31 @@ export default function RoomsPage() {
   useEffect(() => {
     fetchRooms();
   }, []);
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setAnalyticsLoading(true);
+      let url = "/api/rooms/analytics";
+      if (filterStartDate && filterEndDate) {
+        url += `?startDate=${filterStartDate}&endDate=${filterEndDate}`;
+      }
+      const response = await fetch(url);
+      const result = await response.json();
+      if (result.success) {
+        setAnalytics(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching room analytics:", error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [filterStartDate, filterEndDate]);
+
+  useEffect(() => {
+    if (showAnalytics) {
+      fetchAnalytics();
+    }
+  }, [showAnalytics, fetchAnalytics]);
 
   const fetchRooms = async () => {
     try {
@@ -90,7 +131,7 @@ export default function RoomsPage() {
         setShowCheckInModal(false);
         setCustomerName('');
       } else {
-        alert(result.error);
+        showToast.error(result.error);
       }
     } catch (error) {
       console.error('Error in bulk check-in:', error);
@@ -116,9 +157,9 @@ export default function RoomsPage() {
             setSelectedRoomIds([]);
             const total = result.data.reduce((sum: number, r: any) => sum + r.totalPrice, 0);
             const totalMsg = t('common.totalCollected', { amount: new Intl.NumberFormat('vi-VN').format(total) });
-            alert(totalMsg);
+            showToast.success(totalMsg);
           } else {
-            alert(result.error);
+            showToast.error(result.error);
           }
         } catch (error) {
           console.error('Error in bulk check-out:', error);
@@ -228,6 +269,14 @@ export default function RoomsPage() {
               </>
             )}
             <button
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              {showAnalytics
+                ? t("room.hideAnalytics")
+                : t("room.showAnalytics")}
+            </button>
+            <button
               onClick={() => {
                 resetForm();
                 setShowModal(true);
@@ -238,6 +287,170 @@ export default function RoomsPage() {
             </button>
           </div>
         </div>
+
+        {/* Analytics Section */}
+        {showAnalytics && (
+          <div className="bg-white shadow rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                {t("room.analyticsTitle")}
+              </h2>
+              <div className="flex gap-3">
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder={t("room.filterStartDate")}
+                />
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder={t("room.filterEndDate")}
+                />
+                {(filterStartDate || filterEndDate) && (
+                  <button
+                    onClick={() => {
+                      setFilterStartDate("");
+                      setFilterEndDate("");
+                    }}
+                    className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    {t("room.clearFilters")}
+                  </button>
+                )}
+              </div>
+            </div>
+            {analyticsLoading ? (
+              <div className="text-center py-8 text-gray-500">
+                {t("common.loading")}
+              </div>
+            ) : analytics.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {t("room.noAnalytics")}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.rank")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.roomNumber")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.category")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.bedType")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.checkOutCount")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.totalRevenue")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.extrasRevenue")}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {t("room.avgStayDuration")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {analytics.map((item, index) => {
+                      const isTopThree = index < 3;
+                      const rankColors = [
+                        "bg-yellow-100 text-yellow-800 border-yellow-300", // Gold
+                        "bg-gray-100 text-gray-800 border-gray-300", // Silver
+                        "bg-orange-100 text-orange-800 border-orange-300", // Bronze
+                      ];
+                      const rankBadges = ["🥇", "🥈", "🥉"];
+                      
+                      return (
+                        <tr
+                          key={item.roomNumber}
+                          className={
+                            isTopThree
+                              ? "bg-gradient-to-r from-blue-50 to-transparent"
+                              : ""
+                          }
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-sm font-bold px-2 py-1 rounded border ${
+                                  isTopThree
+                                    ? rankColors[index]
+                                    : "text-gray-600"
+                                }`}
+                              >
+                                {isTopThree ? rankBadges[index] : `#${index + 1}`}
+                              </span>
+                              {!isTopThree && (
+                                <span className="text-sm text-gray-500">
+                                  #{index + 1}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-sm font-medium ${
+                                  isTopThree
+                                    ? "text-gray-900 font-bold"
+                                    : "text-gray-700"
+                                }`}
+                              >
+                                {item.roomNumber}
+                              </span>
+                              {isTopThree && (
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                                  {t("room.topRank", { rank: index + 1 })}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {t(`room.${item.category}`)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.bedType} {t("room.beds")}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.transactionCount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                            {new Intl.NumberFormat("vi-VN").format(
+                              item.totalRevenue
+                            )}{" "}
+                            VND
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Intl.NumberFormat("vi-VN").format(
+                              item.totalExtrasRevenue
+                            )}{" "}
+                            VND
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {Math.round(item.averageStayDuration)}{" "}
+                            {t("room.hourUnit")}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">

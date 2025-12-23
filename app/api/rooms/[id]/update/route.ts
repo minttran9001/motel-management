@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Room from "@/models/Room";
 
-export async function POST(
+export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -29,9 +29,9 @@ export async function POST(
       );
     }
 
-    if (!room.isAvailable) {
+    if (room.isAvailable) {
       return NextResponse.json(
-        { success: false, error: "Room is not available" },
+        { success: false, error: "Room is available, cannot update" },
         { status: 400 }
       );
     }
@@ -41,28 +41,24 @@ export async function POST(
 
     const updateQuery: {
       $set: {
-        isAvailable: boolean;
         customerName: string;
         identityCode?: string;
         origin?: string;
         numberOfPeople: number;
         currentStayPrice?: number;
         deposit: number;
-        checkInTime: Date;
         phoneNumber?: string;
         extras?: Array<{ name: string; quantity: number; price: number }>;
       };
       $unset?: { phoneNumber?: string; extras?: string };
     } = {
       $set: {
-        isAvailable: false,
         customerName: customerName || "Guest",
         identityCode: identityCode,
         origin: origin,
         numberOfPeople: numPeople > 0 ? numPeople : 1,
         currentStayPrice: dailyPrice,
         deposit: deposit || 0,
-        checkInTime: new Date(),
       },
     };
 

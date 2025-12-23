@@ -54,14 +54,26 @@ export async function POST(request: NextRequest) {
         bedType: room.bedType,
       });
 
-      // Reset room
-      room.isAvailable = true;
-      room.customerName = undefined;
-      room.identityCode = undefined;
-      room.origin = undefined;
-      room.currentStayPrice = undefined;
-      room.checkInTime = undefined;
-      await room.save();
+      // Reset room - clear all customer details and extras, keep only default fields
+      await Room.updateOne(
+        { _id: room._id },
+        {
+          $set: {
+            isAvailable: true,
+          },
+          $unset: {
+            customerName: "",
+            identityCode: "",
+            origin: "",
+            phoneNumber: "",
+            numberOfPeople: "",
+            currentStayPrice: "",
+            deposit: "",
+            checkInTime: "",
+            extras: "", // Clear extras array
+          },
+        }
+      );
 
       results.push({
         roomNumber: room.roomNumber,

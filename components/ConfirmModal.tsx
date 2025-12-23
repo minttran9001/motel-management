@@ -1,6 +1,17 @@
-'use client';
+"use client";
 
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -10,7 +21,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
   confirmText?: string;
   cancelText?: string;
-  type?: 'danger' | 'warning' | 'info';
+  type?: "danger" | "warning" | "info";
 }
 
 export default function ConfirmModal({
@@ -21,82 +32,56 @@ export default function ConfirmModal({
   onCancel,
   confirmText,
   cancelText,
-  type = 'warning'
+  type = "warning",
 }: ConfirmModalProps) {
-  const t = useTranslations('common');
+  const t = useTranslations("common");
 
-  if (!isOpen) return null;
-
-  const getColors = () => {
+  const getVariant = () => {
     switch (type) {
-      case 'danger':
-        return {
-          bg: 'bg-red-600',
-          hover: 'hover:bg-red-700',
-          text: 'text-red-600',
-          light: 'bg-red-50',
-          border: 'border-red-100'
-        };
-      case 'info':
-        return {
-          bg: 'bg-blue-600',
-          hover: 'hover:bg-blue-700',
-          text: 'text-blue-600',
-          light: 'bg-blue-50',
-          border: 'border-blue-100'
-        };
+      case "danger":
+        return "destructive";
       default:
-        return {
-          bg: 'bg-orange-500',
-          hover: 'hover:bg-orange-600',
-          text: 'text-orange-600',
-          light: 'bg-orange-50',
-          border: 'border-orange-100'
-        };
+        return "default";
     }
   };
 
-  const colors = getColors();
-
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[100] flex items-center justify-center p-4">
-      <div className="relative mx-auto p-6 border w-full max-w-sm shadow-xl rounded-2xl bg-white animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center mb-4">
-          <div className={`p-2 rounded-full ${colors.light} mr-3`}>
-            {type === 'danger' ? (
-              <svg className={`h-6 w-6 ${colors.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            ) : (
-              <svg className={`h-6 w-6 ${colors.text}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            )}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "p-2 rounded-full",
+                type === "danger" && "bg-red-50",
+                type === "info" && "bg-blue-50",
+                type === "warning" && "bg-orange-50"
+              )}
+            >
+              {type === "danger" ? (
+                <AlertTriangle className={cn("h-6 w-6", "text-red-600")} />
+              ) : (
+                <Info
+                  className={cn(
+                    "h-6 w-6",
+                    type === "info" ? "text-blue-600" : "text-orange-600"
+                  )}
+                />
+              )}
+            </div>
+            <DialogTitle>{title}</DialogTitle>
           </div>
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-        </div>
-        
-        <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-          {message}
-        </p>
-
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 text-sm font-semibold border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            {cancelText || t('cancel')}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 px-4 py-2.5 text-sm font-bold text-white rounded-xl ${colors.bg} ${colors.hover} transition-colors shadow-lg shadow-gray-100`}
-          >
-            {confirmText || t('confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
+          <DialogDescription className="pt-4">{message}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            {cancelText || t("cancel")}
+          </Button>
+          <Button variant={getVariant()} onClick={onConfirm}>
+            {confirmText || t("confirm")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
-

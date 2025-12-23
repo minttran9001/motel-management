@@ -32,8 +32,11 @@ export default auth((req) => {
     "/hourly-pricing",
     "/price-calculator",
     "/discounts",
+    "/extras",
     "/expenses",
     "/history",
+    "/revenue-summary",
+    "/debts",
   ];
 
   const isProtectedPath = protectedPaths.some((path) =>

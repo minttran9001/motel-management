@@ -7,20 +7,60 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const { searchParams } = new URL(request.url);
-    const dateStr = searchParams.get("date") || new Date().toISOString();
-    const date = new Date(dateStr);
+    const dateStr = searchParams.get("date");
+    const startDateStr = searchParams.get("startDate");
+    const endDateStr = searchParams.get("endDate");
+    const debtsOnly = searchParams.get("debtsOnly") === "true";
 
-    const start = startOfDay(date);
-    const end = endOfDay(date);
+    // Base query
+    const query: Record<string, unknown> = {};
 
-    const transactions = await Transaction.find({
-      checkOut: { $gte: start, $lte: end },
-    }).sort({ checkOut: -1 });
+    if (debtsOnly) {
+      // Only outstanding debts - must have isDebt=true AND debtRemaining > 0
+      query.isDebt = true;
+      query.debtRemaining = { $gt: 0 };
+      // Also exclude cancelled transactions
+      query.cancelled = { $ne: true };
+
+      // Add date filtering for debts if provided
+      if (startDateStr && endDateStr) {
+        const start = startOfDay(new Date(startDateStr));
+        const end = endOfDay(new Date(endDateStr));
+        query.checkOut = { $gte: start, $lte: end };
+      }
+    } else {
+      // Date-based queries for normal transaction history
+      let start: Date;
+      let end: Date;
+
+      if (startDateStr && endDateStr) {
+        // Date range query
+        start = new Date(startDateStr);
+        end = new Date(endDateStr);
+      } else {
+        // Single date query (default behavior)
+        const date = dateStr ? new Date(dateStr) : new Date();
+        start = startOfDay(date);
+        end = endOfDay(date);
+      }
+
+      query.checkOut = { $gte: start, $lte: end };
+
+      // Exclude unpaid debts from normal transaction listing
+      query.$or = [
+        { isDebt: { $exists: false } },
+        { isDebt: false },
+        { debtRemaining: { $lte: 0 } },
+      ];
+    }
+
+    const transactions = await Transaction.find(query).sort({ checkOut: -1 });
 
     return NextResponse.json({ success: true, data: transactions });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: message },
       { status: 500 }
     );
   }

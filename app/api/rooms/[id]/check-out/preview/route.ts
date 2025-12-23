@@ -31,7 +31,6 @@ export async function GET(
     const checkOutTime = new Date();
     const checkInTime =
       room.checkInTime || room.updatedAt || room.createdAt || checkOutTime;
-
     const calculation = await calculatePrice(
       room.category,
       room.bedType.toString(),
@@ -45,15 +44,19 @@ export async function GET(
       data: {
         roomNumber: room.roomNumber,
         customerName: room.customerName,
+        phoneNumber: room.phoneNumber,
+        numberOfPeople: room.numberOfPeople,
         deposit: room.deposit || 0,
         checkIn: checkInTime,
         checkOut: checkOutTime,
+        extras: room.extras || [],
         calculation,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: message },
       { status: 500 }
     );
   }

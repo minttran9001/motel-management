@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import ConfirmModal from "@/components/ConfirmModal";
+import { showToast } from "@/lib/toast";
 
 interface HourlyPricing {
   _id: string;
@@ -83,11 +84,11 @@ export default function HourlyPricingPage() {
         setShowModal(false);
         resetForm();
       } else {
-        alert(result.error || "Failed to save pricing");
+        showToast.error(result.error || t("hourlyPricing.saveError"));
       }
     } catch (error) {
       console.error("Error saving hourly pricing:", error);
-      alert("Failed to save pricing");
+      showToast.error(t("hourlyPricing.saveError"));
     }
   };
 

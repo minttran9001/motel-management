@@ -5,6 +5,7 @@ import { routing } from "@/i18n/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import Navigation from "@/components/Navigation";
+import { Toaster } from "@/components/ui/toaster";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -48,10 +49,11 @@ export default async function LocaleLayout({
           <NextIntlClientProvider locale={locale} messages={messages}>
             <div className="flex min-h-screen">
               <Navigation />
-              <main className="flex-1 lg:ml-80 transition-all duration-300 bg-gray-50">
+              <main className="flex-1 transition-all duration-300 bg-gray-50" id="main-content">
                 {children}
               </main>
             </div>
+            <Toaster />
           </NextIntlClientProvider>
         </SessionProvider>
       </body>

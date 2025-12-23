@@ -47,6 +47,11 @@ export async function GET(request: NextRequest) {
     // Fetch Transactions (Income)
     const transactions = await Transaction.find({
       checkOut: { $gte: start, $lte: end },
+      $or: [
+        { isDebt: { $exists: false } },
+        { isDebt: false },
+        { debtRemaining: { $lte: 0 } },
+      ],
     });
 
     // Fetch Expenses (Costs)
@@ -54,7 +59,10 @@ export async function GET(request: NextRequest) {
       date: { $gte: start, $lte: end },
     });
 
-    const totalRevenue = transactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalRevenue = transactions.reduce((sum, t) => {
+      const paid = (t as any).paidAmount ?? t.amount;
+      return sum + paid;
+    }, 0);
     const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
     const netIncome = totalRevenue - totalExpenses;
 

@@ -69,7 +69,7 @@ export default function PriceCalculatorPage() {
 
   const handleCalculate = async () => {
     if (!selectedCategory || !selectedBedType || !checkIn || !checkOut) {
-      setError("Please fill in all fields");
+      setError(t("priceCalculator.fillAllFields"));
       return;
     }
 
@@ -77,7 +77,7 @@ export default function PriceCalculatorPage() {
     const checkOutDate = new Date(checkOut);
 
     if (checkOutDate <= checkInDate) {
-      setError("Check-out must be after check-in");
+      setError(t("priceCalculator.checkoutAfterCheckin"));
       return;
     }
 
@@ -102,10 +102,10 @@ export default function PriceCalculatorPage() {
       if (result.success) {
         setResult(result.data);
       } else {
-        setError(result.error || "Failed to calculate price");
+        setError(result.error || t("priceCalculator.calculateError"));
       }
     } catch (error: any) {
-      setError(error.message || "Failed to calculate price");
+      setError(error.message || t("priceCalculator.calculateError"));
     } finally {
       setLoading(false);
     }
@@ -136,15 +136,15 @@ export default function PriceCalculatorPage() {
 
       const data = await response.json();
       if (data.success) {
-        setSuccess("Transaction recorded successfully! Revenue updated.");
+        setSuccess(t("priceCalculator.saveSuccess"));
         setResult(null);
         setCheckIn("");
         setCheckOut("");
       } else {
-        setError(data.error || "Failed to save transaction");
+        setError(data.error || t("priceCalculator.saveError"));
       }
     } catch (err: any) {
-      setError(err.message || "Failed to save transaction");
+      setError(err.message || t("priceCalculator.saveError"));
     } finally {
       setSaving(false);
     }

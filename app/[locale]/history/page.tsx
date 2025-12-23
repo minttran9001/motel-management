@@ -66,7 +66,9 @@ export default function HistoryPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t("nav.history")}</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {t("nav.history")}
+          </h1>
           <p className="mt-1 text-sm text-gray-500">
             {t("history.description")}
           </p>
@@ -84,12 +86,20 @@ export default function HistoryPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-sm font-medium text-gray-500 mb-1">{t("dashboard.totalIncome")}</p>
-          <p className="text-2xl font-bold text-blue-600">{formatPrice(totalCollected)} VND</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">
+            {t("dashboard.totalIncome")}
+          </p>
+          <p className="text-2xl font-bold text-blue-600">
+            {formatPrice(totalCollected)} VND
+          </p>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <p className="text-sm font-medium text-gray-500 mb-1">{t("dashboard.occupiedRooms")}</p>
-          <p className="text-2xl font-bold text-gray-900">{transactions.length}</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">
+            {t("dashboard.numberOfCheckedOutRooms")}
+          </p>
+          <p className="text-2xl font-bold text-gray-900">
+            {transactions.length}
+          </p>
         </div>
       </div>
 
@@ -124,28 +134,41 @@ export default function HistoryPage() {
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-6 py-10 text-center text-gray-500"
+                  >
                     {t("common.loading")}
                   </td>
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-6 py-10 text-center text-gray-500"
+                  >
                     {t("common.noData")}
                   </td>
                 </tr>
               ) : (
                 transactions.map((transaction) => (
-                  <tr key={transaction._id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={transaction._id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold text-gray-900">{transaction.roomNumber}</span>
+                        <span className="text-sm font-bold text-gray-900">
+                          {transaction.roomNumber}
+                        </span>
                         <div className="flex gap-1 mt-1">
-                          <span className={`text-[9px] uppercase font-black px-1 rounded-sm ${
-                            transaction.category === "vip" 
-                              ? "bg-amber-100 text-amber-700" 
-                              : "bg-gray-100 text-gray-500"
-                          }`}>
+                          <span
+                            className={`text-[9px] uppercase font-black px-1 rounded-sm ${
+                              transaction.category === "vip"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-gray-100 text-gray-500"
+                            }`}
+                          >
                             {t(`room.${transaction.category}`)}
                           </span>
                           <span className="text-[9px] uppercase font-black px-1 rounded-sm bg-blue-50 text-blue-600">
@@ -155,13 +178,19 @@ export default function HistoryPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900">{transaction.customerName}</div>
+                      <div className="text-sm font-bold text-gray-900">
+                        {transaction.customerName}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600 font-medium">{transaction.identityCode || "-"}</div>
+                      <div className="text-sm text-gray-600 font-medium">
+                        {transaction.identityCode || "-"}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-600">{transaction.origin || "-"}</div>
+                      <div className="text-sm text-gray-600">
+                        {transaction.origin || "-"}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                       {formatDateTime(transaction.checkIn)}
@@ -182,4 +211,3 @@ export default function HistoryPage() {
     </div>
   );
 }
-

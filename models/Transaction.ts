@@ -6,12 +6,24 @@ export interface ITransaction extends Document {
   customerName?: string;
   identityCode?: string;
   origin?: string;
+  phoneNumber?: string;
+  numberOfPeople?: number;
   checkIn: Date;
   checkOut: Date;
-  amount: number; // Final amount paid in VND
+  amount: number; // Total bill amount (room + extras, before debt)
+  paidAmount?: number; // Amount actually paid that should count toward revenue
+  isDebt?: boolean; // Whether this transaction still has outstanding debt
+  debtRemaining?: number; // Remaining amount the customer still owes
   deposit: number; // Deposit paid at check-in
   category: "vip" | "regular";
   bedType: number;
+  cancelled?: boolean; // Whether this transaction was cancelled
+  cancellationReason?: string; // Reason for cancellation
+  extras?: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>; // Extra items like drinks, snacks, etc.
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +48,13 @@ const TransactionSchema: Schema = new Schema(
     origin: {
       type: String,
     },
+    phoneNumber: {
+      type: String,
+    },
+    numberOfPeople: {
+      type: Number,
+      min: 1,
+    },
     checkIn: {
       type: Date,
       required: true,
@@ -48,6 +67,19 @@ const TransactionSchema: Schema = new Schema(
       type: Number,
       required: true,
       min: 0,
+    },
+    paidAmount: {
+      type: Number,
+      min: 0,
+    },
+    isDebt: {
+      type: Boolean,
+      default: false,
+    },
+    debtRemaining: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
     deposit: {
       type: Number,
@@ -63,6 +95,31 @@ const TransactionSchema: Schema = new Schema(
       required: true,
       min: 1,
     },
+    cancelled: {
+      type: Boolean,
+      default: false,
+    },
+    cancellationReason: {
+      type: String,
+    },
+    extras: [
+      {
+        name: {
+          type: String,
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+        price: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
@@ -70,7 +127,7 @@ const TransactionSchema: Schema = new Schema(
 );
 
 const Transaction: Model<ITransaction> =
-  mongoose.models.Transaction || mongoose.model<ITransaction>("Transaction", TransactionSchema);
+  mongoose.models.Transaction ||
+  mongoose.model<ITransaction>("Transaction", TransactionSchema);
 
 export default Transaction;
-
