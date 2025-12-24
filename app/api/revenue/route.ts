@@ -46,7 +46,7 @@ export const GET = withAuth(async (request: NextRequest) => {
 
   // Fetch Transactions (Income)
   // Exclude cancelled transactions and unpaid debts
-  const transactionQuery = {
+  const transactions = await Transaction.find({
     checkOut: { $gte: start, $lte: end },
     cancelled: { $ne: true }, // Exclude cancelled transactions
     $or: [
@@ -54,9 +54,7 @@ export const GET = withAuth(async (request: NextRequest) => {
       { isDebt: false },
       { debtRemaining: { $lte: 0 } },
     ],
-  };
-  
-  const transactions = await Transaction.find(transactionQuery);
+  });
 
   // Fetch Expenses (Costs)
   const expenses = await Expense.find({
