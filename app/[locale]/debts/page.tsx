@@ -43,14 +43,18 @@ export default function DebtsPage() {
       setLoading(true);
       const params: {
         debtsOnly: boolean;
-        startDate?: string;
-        endDate?: string;
+        checkInDate?: string;
+        checkOutDate?: string;
+        startCheckInDate?: string;
+        endCheckInDate?: string;
+        startCheckOutDate?: string;
+        endCheckOutDate?: string;
       } = {
         debtsOnly: true,
       };
       if (filterStartDate && filterEndDate) {
-        params.startDate = filterStartDate;
-        params.endDate = filterEndDate;
+        params.startCheckInDate = filterStartDate;
+        params.endCheckInDate = filterEndDate;
       }
       const res = await apiClient.transactions.getAll(params);
       if (!res.data.success) {

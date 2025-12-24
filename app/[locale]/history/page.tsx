@@ -35,7 +35,7 @@ export default function HistoryPage() {
     setLoading(true);
     try {
       const response = await apiClient.transactions.getAll({
-        date: selectedDate,
+        checkInDate: selectedDate,
       });
       if (response.data.success) {
         setTransactions(response.data.data);

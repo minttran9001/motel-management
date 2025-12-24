@@ -6,55 +6,61 @@ import { withAuth } from "@/lib/api-wrapper";
 
 export const GET = withAuth(async (request: NextRequest) => {
   await connectDB();
-    const { searchParams } = new URL(request.url);
-    const dateStr = searchParams.get("date");
-    const startDateStr = searchParams.get("startDate");
-    const endDateStr = searchParams.get("endDate");
-    const debtsOnly = searchParams.get("debtsOnly") === "true";
+  const { searchParams } = new URL(request.url);
+  const checkInDateStr = searchParams.get("checkInDate");
+  const checkOutDateStr = searchParams.get("checkOutDate");
+  const startCheckInDateStr = searchParams.get("startCheckInDate");
+  const endCheckInDateStr = searchParams.get("endCheckInDate");
+  const startCheckOutDateStr = searchParams.get("startCheckOutDate");
+  const endCheckOutDateStr = searchParams.get("endCheckOutDate");
+  const debtsOnly = searchParams.get("debtsOnly") === "true";
 
-    // Base query
-    const query: Record<string, unknown> = {};
+  // Base query
+  const query: Record<string, unknown> = {};
 
-    if (debtsOnly) {
-      // Only outstanding debts - must have isDebt=true AND debtRemaining > 0
-      query.isDebt = true;
-      query.debtRemaining = { $gt: 0 };
-      // Also exclude cancelled transactions
-      query.cancelled = { $ne: true };
+  if (checkInDateStr) {
+    query.checkIn = {
+      $gte: startOfDay(new Date(checkInDateStr)),
+      $lte: endOfDay(new Date(checkInDateStr)),
+    };
+  } else if (checkOutDateStr) {
+    query.checkOut = {
+      $gte: startOfDay(new Date(checkOutDateStr)),
+      $lte: endOfDay(new Date(checkOutDateStr)),
+    };
+  } else if (startCheckInDateStr && endCheckInDateStr) {
+    const start = startOfDay(new Date(startCheckInDateStr));
+    const end = endOfDay(new Date(endCheckInDateStr));
+    query.checkIn = { $gte: start, $lte: end };
+  } else if (startCheckOutDateStr && endCheckOutDateStr) {
+    const start = startOfDay(new Date(startCheckOutDateStr));
+    const end = endOfDay(new Date(endCheckOutDateStr));
+    query.checkOut = { $gte: start, $lte: end };
+  }
 
-      // Add date filtering for debts if provided
-      if (startDateStr && endDateStr) {
-        const start = startOfDay(new Date(startDateStr));
-        const end = endOfDay(new Date(endDateStr));
-        query.checkOut = { $gte: start, $lte: end };
-      }
-    } else {
-      // Date-based queries for normal transaction history
-      let start: Date;
-      let end: Date;
+  if (debtsOnly) {
+    // Only outstanding debts - must have isDebt=true AND debtRemaining > 0
+    query.isDebt = true;
+    query.debtRemaining = { $gt: 0 };
+    // Also exclude cancelled transactions
+    query.cancelled = { $ne: true };
 
-      if (startDateStr && endDateStr) {
-        // Date range query
-        start = new Date(startDateStr);
-        end = new Date(endDateStr);
-      } else {
-        // Single date query (default behavior)
-        const date = dateStr ? new Date(dateStr) : new Date();
-        start = startOfDay(date);
-        end = endOfDay(date);
-      }
+    // Add date filtering for debts if provided
+  } else {
+    // Exclude unpaid debts from normal transaction listing
+    query.$or = [
+      { isDebt: { $exists: false } },
+      { isDebt: false },
+      { debtRemaining: { $lte: 0 } },
+    ];
+  }
 
-      query.checkOut = { $gte: start, $lte: end };
+  const isCheckIn =
+    (startCheckInDateStr && endCheckInDateStr) || checkInDateStr;
 
-      // Exclude unpaid debts from normal transaction listing
-      query.$or = [
-        { isDebt: { $exists: false } },
-        { isDebt: false },
-        { debtRemaining: { $lte: 0 } },
-      ];
-    }
-
-  const transactions = await Transaction.find(query).sort({ checkOut: -1 });
+  const transactions = await Transaction.find(query).sort({
+    [isCheckIn ? "checkIn" : "checkOut"]: -1,
+  });
 
   return NextResponse.json({ success: true, data: transactions });
 });
