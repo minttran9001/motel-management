@@ -24,23 +24,34 @@ export const GET = withAuth(async (request: NextRequest) => {
   let start: Date;
   let end: Date;
 
+  // Use UTC to ensure consistent behavior across different server timezones
+  const utcDate = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds()
+  ));
+
   switch (period) {
     case "week":
-      start = startOfWeek(date, { weekStartsOn: 1 });
-      end = endOfWeek(date, { weekStartsOn: 1 });
+      start = startOfWeek(utcDate, { weekStartsOn: 1 });
+      end = endOfWeek(utcDate, { weekStartsOn: 1 });
       break;
     case "month":
-      start = startOfMonth(date);
-      end = endOfMonth(date);
+      // Calculate start and end of month in UTC
+      start = new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), 1, 0, 0, 0, 0));
+      end = new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
       break;
     case "year":
-      start = startOfYear(date);
-      end = endOfYear(date);
+      start = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1, 0, 0, 0, 0));
+      end = new Date(Date.UTC(utcDate.getUTCFullYear(), 11, 31, 23, 59, 59, 999));
       break;
     case "day":
     default:
-      start = startOfDay(date);
-      end = endOfDay(date);
+      start = new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate(), 0, 0, 0, 0));
+      end = new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate(), 23, 59, 59, 999));
       break;
   }
 
