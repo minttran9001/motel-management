@@ -146,8 +146,8 @@ export default function RevenueSummaryPage() {
       const startDate = new Date(revenue.start).toISOString();
       const endDate = new Date(revenue.end).toISOString();
       const transactionsRes = await apiClient.transactions.getAll({
-        startDate,
-        endDate,
+        startCheckInDate: startDate,
+        endCheckInDate: endDate,
       });
       if (transactionsRes.data.success) {
         setTransactions(transactionsRes.data.data);

@@ -248,9 +248,12 @@ export const apiClient = {
   // Transactions
   transactions: {
     getAll: (params?: {
-      date?: string;
-      startDate?: string;
-      endDate?: string;
+      checkInDate?: string;
+      checkOutDate?: string;
+      startCheckInDate?: string;
+      endCheckInDate?: string;
+      startCheckOutDate?: string;
+      endCheckOutDate?: string;
       debtsOnly?: boolean;
     }) =>
       api.get<{ success: boolean; data: Transaction[] }>("/transactions", {
