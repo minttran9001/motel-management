@@ -86,13 +86,13 @@ export default function RevenueSummaryPage() {
     try {
       let dateStr: string;
       if (viewMode === "month") {
-        // Create date for the first day of selected month
-        const date = new Date(selectedYear, selectedMonth - 1, 1);
-        dateStr = date.toISOString();
+        // Send the date directly in UTC format representing the selected month
+        // This ensures the server interprets it as the intended month regardless of timezone
+        const monthStr = String(selectedMonth).padStart(2, '0');
+        dateStr = `${selectedYear}-${monthStr}-01T00:00:00.000Z`;
       } else {
         // Create date for the first day of selected year
-        const date = new Date(selectedYear, 0, 1);
-        dateStr = date.toISOString();
+        dateStr = `${selectedYear}-01-01T00:00:00.000Z`;
       }
 
       const response = await apiClient.revenue.get({
